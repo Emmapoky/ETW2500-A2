@@ -1,0 +1,68 @@
+# Setup and Data {#sec-setup}
+
+## Packages, seed and theme
+
+All packages are loaded in one chunk, before anything else runs. `pacman::p_load()` installs any package that is missing on the reader's machine, so the report renders without a separate installation step. There is no `install.packages()` call anywhere in this document.
+
+```{r}
+#| label: setup
+
+# pacman installs anything missing, then loads it
+library(pacman)
+p_load(tidyverse, tidymodels, here, janitor, gt, scales, patchwork,
+       factoextra, cluster, dendextend)
+
+# The seed is the last five digits of the group leader's student ID.
+# Clustering and any random split depend on it, so setting it once, here,
+# makes every result in this report repeat exactly.
+set.seed(55789)
+
+# One palette and one chart theme for the whole report, so every figure matches.
+pal <- c("#51017C", "#B9379D", "#E3A88A", "#2A9D8F", "#E9C46A", "#6C757D")
+theme_set(
+  theme_minimal(base_size = 13) +
+    theme(plot.title = element_text(face = "bold", colour = "#3b1f5e"),
+          panel.grid.minor = element_blank(),
+          legend.position = "bottom")
+)
+```
+
+## Reading the data
+
+The file `bathsoap.csv` has one row per household. `brand_example.csv` is the three household toy example used in Question 1. Both are read with `here()`, which builds the path from the project root (the folder that holds `ErwynaSooW.Rproj`), so the paths work on any computer.
+
+```{r}
+#| label: load-data
+
+soap_raw      <- read_csv(here("data", "bathsoap.csv"), show_col_types = FALSE)
+brand_example <- read_csv(here("data", "brand_example.csv"), show_col_types = FALSE)
+
+# Column groups, named once so every section uses the same definitions.
+# The eight named brands are used for loyalty; BrOthers pools many small brands
+# and is deliberately left out of that list (see Question 1).
+brand_cols <- c("Br57_144", "Br55", "Br272", "Br286", "Br24", "Br481",
+                "Br352", "Br5")
+demo_cols  <- c("SEC", "FEH", "MT", "SEX", "AGE", "EDU", "HS", "CHILD", "CS",
+                "Affluence")
+```
+
+## First look
+
+```{r}
+#| label: first-look
+
+tibble(
+  households        = nrow(soap_raw),
+  columns           = ncol(soap_raw),
+  unique_ids        = n_distinct(soap_raw$MemberID),
+  missing_cells     = sum(is.na(soap_raw)),
+  brand_shares_sum1 = all(abs(rowSums(select(soap_raw, all_of(brand_cols), BrOthers)) - 1) < 0.01)
+) |>
+  gt() |>
+  cols_label(households = "Households", columns = "Columns",
+             unique_ids = "Unique IDs", missing_cells = "Empty cells (NA)",
+             brand_shares_sum1 = "Brand shares sum to 1") |>
+  tab_header(title = "Basic checks on bathsoap.csv")
+```
+
+The data have `r nrow(soap_raw)` households and no empty cells, and every household's nine brand shares add up to about 1. That does **not** mean there is no missing information. The data guide says a code of 0 means "not specified" for the demographic variables, so the missing values are hidden inside the numbers. Section @sec-prep finds and handles them.

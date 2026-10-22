@@ -1,0 +1,53 @@
+# Question 1, Part A: Thinking About Brand Loyalty {#sec-q1a}
+
+<!--
+INSTRUCTIONS FOR TAABISH (Q1 Part A, items 1 to 3). Delete this whole comment block when your section is final.
+
+Hi Taabish. This is your first section. Only edit THIS file (sections/04_q1a_distances.qmd).
+
+THE TASK (spec page 4, "Part A: Think about the problem"):
+  1. Compare the brand loyalty of household X (buys only brand A) with household Y (buys only brand B).
+     On what does brand loyalty depend?
+  2. Read brand_example.csv into R and calculate the Euclidean distance between each pair of households
+     (X-Y, X-Z, Y-Z). Which households do the distances suggest are most similar? Is that consistent with item 1?
+  3. Explain the effect on distance based methods (such as cluster analysis) of using the nine brand share
+     variables unchanged.
+
+I ALREADY LOADED the data for you: `brand_example` exists (see 03_setup_and_data.qmd). It has columns
+Household, BrandA, BrandB. Do not read it again.
+
+HINTS (thinking, not answers):
+  - dist() wants numbers only and keeps row names. Think about how to put the Household names back on the result.
+  - Item 1 is about WHAT loyalty depends on. A household that buys 100% brand A and one that buys 100% brand B:
+    is the brand's identity part of loyalty, or the concentration of purchases?
+  - Item 3 connects the result of item 2 to what a cluster algorithm would do with the nine columns.
+
+EXTRAS FOR HD:
+  a. Show the distance matrix as a small gt table AND a tiny plot of X, Y, Z (BrandA on x, BrandB on y).
+  b. A one line statement of the geometry: where would a household with 0.9/0.1 sit relative to X?
+  c. Under every output write a sentence of interpretation. The marker marks the sentence, not the number.
+
+Work with: source("tools/load_upstream.R"); load_upstream("04_q1a_distances")
+Remove each TODO(Taabish) when done. tools/check_todos.R lists what is left.
+-->
+
+## Loyalty of households X and Y (item 1)
+
+TODO(Taabish): write your answer. On what does brand loyalty depend?
+
+## Euclidean distances between X, Y and Z (item 2)
+
+```{r}
+#| label: example-distances
+#| eval: false
+
+# TODO(Taabish): compute all pairwise Euclidean distances from brand_example with dist().
+# TODO(Taabish): put the household names X, Y, Z back on the result and show it with gt().
+# TODO(Taabish): change eval: false to eval: true once your code is in.
+```
+
+TODO(Taabish): which pair is closest, and is that consistent with item 1?
+
+## Using the nine brand shares unchanged (item 3)
+
+TODO(Taabish): explain the effect on cluster analysis.

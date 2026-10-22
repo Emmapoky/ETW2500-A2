@@ -1,0 +1,56 @@
+# Question 2(e): Profiling the Groups {#sec-profile}
+
+<!--
+INSTRUCTIONS FOR NANDHINI (Q2e profiling, then Q3 PCA in section 10). Delete this whole comment block when final.
+
+Hi Nandhini. This section is yours. Only edit THIS file (sections/09_q2e_profiling.qmd).
+
+THE TASK (spec page 5, Q2e): profile the groups using THREE demographic variables of your choice, and explain why you chose them.
+
+WHAT YOU START FROM:
+  - `soap_clean`: all 600 households with demographics. Zeros and CHILD category 5 are already turned into NA by my
+    section 07 (please read that section so you can explain why, the marker may ask).
+  - `soap_clusters`: from Shrrii's section 08 (columns MemberID, cluster). It does not exist yet, so for now run:
+        source("tools/load_upstream.R"); load_upstream("09_q2e_profiling", dummy_clusters = TRUE)
+    That creates a RANDOM stand-in in your console only, so you can build and test the code today. When Shrrii's real
+    clusters are merged the same code just works on real results. Never trust any number from the dummy.
+
+THE DEMOGRAPHICS (codes from the spec): SEC 1 high to 4 low; FEH eating habits (1 vegetarian, 2 vegetarian but eats
+eggs, 3 non-vegetarian); MT mother tongue (code only, no labels given); SEX 1 male, 2 female; AGE 1 young to 4 old;
+EDU 1 minimum to 9 maximum; HS household size; CHILD presence of children (categories, no labels given);
+CS TV availability (1 available, 2 unavailable); Affluence weighted value of durables.
+Choose three that matter to a CLIENT: ask "if this group differs on it, what would the manufacturer or agency do?"
+(for example SEC for pricing and pack size, AGE for the media channel, HS for pack size, Affluence for premium products).
+
+NA HANDLING: demographic NAs are kept. For each variable you profile, say how many households have it missing and
+what you did (usually: summarise over the households that have a value, and say the n).
+
+REQUIRED:
+  1. Three demographics, with a reason for each choice.
+  2. For each: how it differs across groups (proportion bars for categorical; mean/median plus a boxplot for numeric).
+  3. A sentence under each output saying what the difference means for the business.
+
+EXTRAS FOR HD:
+  a. A statistical test for each (chi-squared for categorical, ANOVA or Kruskal-Wallis for numeric) so we say "different"
+     with evidence. Report the p-value in a sentence and say whether the difference is practically meaningful.
+  b. Say why you did NOT choose the other demographics.
+  c. A summary table, one row per group, with the three profile variables.
+
+Remove each TODO(Nandhini) when done. tools/check_todos.R lists what is left.
+-->
+
+## Which three demographics, and why
+
+TODO(Nandhini): name the three variables and the business reason for each.
+
+## Profile by group
+
+```{r}
+#| label: profile-groups
+#| eval: false
+
+# TODO(Nandhini): join soap_clusters to soap_clean by MemberID, then summarise / plot the three demographics by cluster.
+# TODO(Nandhini): change eval: false to eval: true once your code is in.
+```
+
+TODO(Nandhini): the interpretation, one short paragraph per variable.

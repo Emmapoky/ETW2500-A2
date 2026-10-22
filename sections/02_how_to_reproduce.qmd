@@ -1,0 +1,27 @@
+# How to Reproduce This Report {#sec-reproduce}
+
+<!--
+INSTRUCTIONS FOR RIELY (reproducibility, rubric criterion 1, worth 10 marks). Delete this whole comment block when final.
+
+Hi Riely. This short section and the appendix (section 12) are yours, on top of Q1 Part B. Only edit THIS file and
+sections/12_appendix.qmd.
+
+The marker wants "excellent documentation, fully reproducible with comprehensive instructions". Write the steps so that a
+stranger can render this report from the zip without asking us anything. Test them: ask a teammate who has NOT seen the
+project to follow your steps on their own laptop at M4 (Sat 31 Oct) and fix every place they get stuck.
+
+WRITE (plain English, numbered steps):
+  1. What the zip contains (the Rproj, the data folder, the document folder) and what each part is for.
+  2. Which software is needed, with version numbers (R, RStudio, Quarto). Find them with R.version.string and
+     quarto --version, and write the real numbers.
+  3. Open ErwynaSooW.Rproj first, and explain why (it sets the working folder, and here() depends on it).
+  4. Packages: pacman installs missing ones on the first render. Say which, and that the first render needs internet.
+  5. Render: open document/ErwynaSooW.qmd and press Render, or run quarto render document/ErwynaSooW.qmd.
+  6. What outputs appear, and where.
+  7. The seed (55789) and what it makes repeatable.
+  8. Known issues and fixes (for example "if a package fails to install, run install.packages('name') once").
+
+Remove each TODO(Riely) when done. tools/check_todos.R lists what is left.
+-->
+
+TODO(Riely): write the numbered reproduction steps described above.

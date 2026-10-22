@@ -1,0 +1,277 @@
+# Question 2(b): Preparing the Data {#sec-prep}
+
+Cluster analysis groups households by distance, so the data must be ready for distance calculations. Three things can distort a distance: values hiding as real numbers (missing data coded as 0), a few huge values that stretch one variable (skewness), and variables measured on very different scales (standardisation). They are handled in that order, because each step depends on the one before.
+
+## Step 1: Missing values hidden as zeros
+
+The data guide gives two rules: for every demographic variable except `Affluence`, a value of 0 means "not specified", and `Affluence` is missing only when `HS` (household size) is 0. A household cannot have a size of 0, so a 0 there is also missing. The count below shows how many zeros each demographic variable holds before any change.
+
+```{r}
+#| label: count-zeros
+
+soap |>
+  summarise(across(all_of(demo_cols), \(x) sum(x == 0))) |>
+  pivot_longer(everything(), names_to = "variable", values_to = "zeros") |>
+  gt() |>
+  cols_label(variable = "Demographic variable", zeros = "Households with a 0") |>
+  tab_header(title = "Zeros in the demographic variables (before cleaning)")
+```
+
+`CHILD` has no zeros, yet the spec lists it as a demographic. Its categories run from 1 to 5, so the next table checks whether category 5 behaves like a "not specified" code.
+
+```{r}
+#| label: child-code-check
+
+soap |>
+  count(`HS is 0` = HS == 0, CHILD) |>
+  gt() |>
+  tab_header(title = "CHILD category against HS = 0")
+```
+
+```{r}
+#| label: child-code-result
+#| echo: false
+
+child5_all_hs0 <- soap |> filter(CHILD == 5) |> summarise(all(HS == 0)) |> pull()
+child5_n       <- sum(soap$CHILD == 5)
+hs0_n          <- sum(soap$HS == 0)
+```
+
+`CHILD = 5` appears in `r child5_n` households and **every one of them** has `HS = 0` (`r child5_all_hs0`), while `HS = 0` is true for `r hs0_n` households. The two flags describe the same households, so category 5 is treated as an undocumented "not specified" code for `CHILD`. This is an assumption, because the data guide does not say so, and it is recorded here so a reader can challenge it.
+
+The next chunk applies the rules. The order matters: `Affluence` is checked against the *original* `HS` before `HS` itself has its zeros turned into `NA`.
+
+```{r}
+#| label: recode-not-specified
+
+soap_clean <- soap |>
+  mutate(
+    # Affluence 0 is missing only when HS is 0. This must run BEFORE HS is changed.
+    Affluence = replace(Affluence, Affluence == 0 & HS == 0, NA),
+    # CHILD 5 is the undocumented 'not specified' code shown above.
+    CHILD     = replace(CHILD, CHILD == 5, NA),
+    # For the other demographics a 0 means 'not specified' (data guide).
+    across(c(SEC, FEH, MT, SEX, AGE, EDU, HS, CHILD, CS), \(x) na_if(x, 0))
+  )
+
+missing_tbl <- soap_clean |>
+  summarise(across(all_of(demo_cols), \(x) sum(is.na(x)))) |>
+  pivot_longer(everything(), names_to = "variable", values_to = "n_missing") |>
+  mutate(percent = n_missing / nrow(soap_clean)) |>
+  filter(n_missing > 0)
+
+missing_tbl |>
+  gt() |>
+  cols_label(variable = "Demographic variable", n_missing = "Missing households",
+             percent = "Share of 600") |>
+  fmt_percent(percent, decimals = 1) |>
+  tab_header(title = "Missing demographic information after recoding zeros to NA")
+```
+
+```{r}
+#| label: missing-overlap
+#| echo: false
+
+n_any_missing <- soap_clean |> mutate(m = if_any(all_of(demo_cols), is.na)) |> summarise(sum(m)) |> pull()
+n_cs_extra    <- sum(is.na(soap_clean$CS) & !is.na(soap_clean$HS))
+n_purchase_na <- soap_clean |> select(-all_of(demo_cols), -MemberID) |> is.na() |> sum()
+```
+
+In total `r n_any_missing` households (`r percent(n_any_missing / nrow(soap_clean), accuracy = 0.1)`) have at least one demographic missing. Most of them are one block of `r hs0_n` households with no demographic information at all, plus `r n_cs_extra` further households with an unspecified `CS` (television availability). The purchase variables used for clustering have `r n_purchase_na` missing values.
+
+**Decision.** The segmentation uses purchase variables only, and those are complete, so no household is dropped and nothing is imputed for the clustering. Imputing demographics for the 68 households with no information at all would invent data. The demographics keep their `NA` and are used only to *profile* the groups in Question 2(e), where each variable is summarised over the households that have a value for it.
+
+## Step 2: Skewness
+
+Skewness measures how lopsided a distribution is. In cluster analysis a few very large values pull the mean and stretch the distance on that variable, so the groups can end up being decided by the extreme households rather than the typical ones. The six selected variables are `r paste(cluster_vars, collapse = ", ")`.
+
+```{r}
+#| label: skewness-before
+
+# Skewness = third standardised moment (the same formula as moments::skewness).
+# 0 is symmetric, positive means a long right tail.
+skew <- function(x) {
+  d <- x - mean(x)
+  mean(d^3) / mean(d^2)^1.5
+}
+
+soap_cluster_raw <- soap_clean |> select(MemberID, all_of(cluster_vars))
+
+skew_before <- soap_cluster_raw |>
+  summarise(across(all_of(cluster_vars), skew)) |>
+  pivot_longer(everything(), names_to = "variable", values_to = "skew_before")
+
+soap_cluster_raw |>
+  pivot_longer(all_of(cluster_vars), names_to = "variable", values_to = "value") |>
+  ggplot(aes(value)) +
+  geom_histogram(bins = 30, fill = pal[1], colour = "white") +
+  facet_wrap(~variable, scales = "free") +
+  labs(title = "The six variables before any transformation",
+       x = NULL, y = "Households")
+```
+
+```{r}
+#| label: skewness-rule
+
+# Common rule of thumb: |skewness| above 1 is strongly skewed.
+skewed_vars <- skew_before |> filter(abs(skew_before) > 1) |> pull(variable)
+
+# Share of households with an exact zero in each variable. Promotion shares are
+# often zero for households that never buy on that promotion (zero inflation).
+zero_share <- soap_cluster_raw |>
+  summarise(across(all_of(cluster_vars), \(x) mean(x == 0))) |>
+  pivot_longer(everything(), names_to = "variable", values_to = "zero_share")
+
+# Rule used here: skewed AND at least 25% exact zeros -> square root;
+# skewed with few zeros -> Yeo-Johnson; not strongly skewed -> leave alone.
+sqrt_vars <- zero_share |> filter(variable %in% skewed_vars, zero_share >= 0.25) |> pull(variable)
+yj_vars   <- setdiff(skewed_vars, sqrt_vars)
+
+skew_before |>
+  left_join(zero_share, by = "variable") |>
+  mutate(method = case_when(variable %in% sqrt_vars ~ "Square root",
+                            variable %in% yj_vars   ~ "Yeo-Johnson",
+                            TRUE                    ~ "None needed")) |>
+  gt() |>
+  fmt_number(skew_before, decimals = 2) |>
+  fmt_percent(zero_share, decimals = 0) |>
+  cols_label(variable = "Variable", skew_before = "Skewness",
+             zero_share = "Exact zeros", method = "Treatment") |>
+  tab_header(title = "Skewness before transformation and the treatment chosen")
+```
+
+Two different treatments are used, because two different problems cause the skew. Where a variable is strongly skewed but has few zeros (volume and frequency of purchase), the **Yeo-Johnson** transformation (`step_YeoJohnson()`) is used. It learns the power that makes the data most symmetric and, unlike `log()`, it accepts zeros. Where a variable is strongly skewed *and* a large share of households sit at an exact zero (the promotion shares), the **square root** (`step_sqrt()`) is used instead. A first attempt with Yeo-Johnson on those shares left them unchanged: the recipe fitted no power for them, most likely because the pile of exact zeros stops the transformation from finding one. The square root is defined at zero, shrinks the long right tail and keeps the order of the households. Variables below the threshold are left alone, because a transformation that is not needed only makes the result harder to explain.
+
+## Step 3: Standardisation
+
+Euclidean distance adds up squared differences, so a variable measured in thousands (volume) would completely drown out one measured between 0 and 1 (a share). Standardising gives every variable a mean of 0 and a standard deviation of 1, so each has an equal say.
+
+```{r}
+#| label: scale-before
+
+soap_cluster_raw |>
+  summarise(across(all_of(cluster_vars), list(mean = mean, sd = sd))) |>
+  pivot_longer(everything(), names_to = c("variable", ".value"), names_pattern = "(.+)_(mean|sd)") |>
+  gt() |>
+  fmt_number(c(mean, sd), decimals = 2) |>
+  cols_label(variable = "Variable", mean = "Mean", sd = "Standard deviation") |>
+  tab_header(title = "Scales before standardising")
+```
+
+Both the transformation and the standardisation are done in one `recipes` recipe, so the same steps could be applied to new households later. The order is deliberate: skewness is corrected first, then the corrected values are standardised.
+
+```{r}
+#| label: prep-recipe
+
+prep_rec <- recipe(~ ., data = soap_cluster_raw) |>
+  update_role(MemberID, new_role = "id") |>      # keep the ID, but never transform it
+  step_sqrt(all_of(sqrt_vars)) |>                # zero-heavy skewed shares
+  step_YeoJohnson(all_of(yj_vars)) |>            # other strongly skewed variables
+  step_normalize(all_numeric_predictors()) |>    # mean 0, standard deviation 1
+  prep()                                         # learn the lambdas, means and sds
+
+soap_prep <- bake(prep_rec, new_data = NULL)     # the prepared data for Q2c and Q3
+```
+
+```{r}
+#| label: check-prepared
+
+soap_prep |>
+  summarise(across(all_of(cluster_vars), list(mean = mean, sd = sd))) |>
+  pivot_longer(everything(), names_to = c("variable", ".value"), names_pattern = "(.+)_(mean|sd)") |>
+  gt() |>
+  fmt_number(c(mean, sd), decimals = 2) |>
+  cols_label(variable = "Variable", mean = "Mean", sd = "Standard deviation") |>
+  tab_header(title = "Scales after the recipe: every variable has mean 0 and sd 1")
+```
+
+```{r}
+#| label: skewness-after
+
+# Skewness before and after, side by side. Standardising does not change skewness,
+# so any change here is due to the square root and Yeo-Johnson steps.
+skew_after <- soap_prep |>
+  summarise(across(all_of(cluster_vars), skew)) |>
+  pivot_longer(everything(), names_to = "variable", values_to = "skew_after")
+
+skew_before |>
+  left_join(skew_after, by = "variable") |>
+  mutate(method = case_when(variable %in% sqrt_vars ~ "Square root",
+                            variable %in% yj_vars   ~ "Yeo-Johnson",
+                            TRUE                    ~ "None")) |>
+  gt() |>
+  fmt_number(c(skew_before, skew_after), decimals = 2) |>
+  cols_label(variable = "Variable", skew_before = "Before", skew_after = "After",
+             method = "Treatment") |>
+  tab_header(title = "Skewness before and after the recipe")
+
+soap_prep |>
+  pivot_longer(all_of(cluster_vars), names_to = "variable", values_to = "value") |>
+  ggplot(aes(value)) +
+  geom_histogram(bins = 30, fill = pal[2], colour = "white") +
+  facet_wrap(~variable, scales = "free") +
+  labs(title = "The six variables after transformation and standardising",
+       x = "Standardised value", y = "Households")
+```
+
+## Step 4: Outliers
+
+Even after the transformation, a household can sit far from the rest, and cluster methods are sensitive to such points. A standardised value beyond 3 (more than 3 standard deviations from the mean) is used as the flag.
+
+```{r}
+#| label: outliers
+
+outlier_tbl <- soap_prep |>
+  summarise(across(all_of(cluster_vars), \(x) sum(abs(x) > 3))) |>
+  pivot_longer(everything(), names_to = "variable", values_to = "households_beyond_3sd")
+
+n_outlier_hh <- soap_prep |>
+  filter(if_any(all_of(cluster_vars), \(x) abs(x) > 3)) |>
+  nrow()
+
+outlier_tbl |>
+  gt() |>
+  cols_label(variable = "Variable", households_beyond_3sd = "Households with |z| > 3") |>
+  tab_header(title = "Extreme values after standardising")
+
+soap_prep |>
+  pivot_longer(all_of(cluster_vars), names_to = "variable", values_to = "value") |>
+  ggplot(aes(variable, value)) +
+  geom_boxplot(fill = pal[3], outlier.colour = pal[1]) +
+  coord_flip() +
+  labs(title = "Boxplots of the prepared variables", x = NULL, y = "Standardised value")
+```
+
+```{r}
+#| label: prep-summary-values
+#| echo: false
+
+sk_tab   <- skew_before |> left_join(skew_after, by = "variable")
+n_flag   <- length(skewed_vars)
+worst_v  <- sk_tab |> slice_max(abs(skew_after), n = 1)
+fixed_v  <- sk_tab |> filter(variable %in% yj_vars)
+# households extreme ONLY on the square-rooted promotion shares
+n_promo_only <- soap_prep |>
+  filter(if_any(all_of(cluster_vars), \(x) abs(x) > 3),
+         if_all(all_of(setdiff(cluster_vars, sqrt_vars)), \(x) abs(x) <= 3)) |>
+  nrow()
+```
+
+**Interpretation.** `r n_flag` of the six variables were strongly skewed before any treatment (|skewness| above 1). For the variables treated with Yeo-Johnson (`r paste(yj_vars, collapse = ", ")`) the skewness fell to between `r round(min(fixed_v$skew_after), 2)` and `r round(max(fixed_v$skew_after), 2)`, which is effectively symmetric. The square root helped the promotion shares (`r paste(sqrt_vars, collapse = ", ")`) but did not remove their skew; the most skewed variable after treatment is `r worst_v$variable` at `r round(worst_v$skew_after, 2)`. That remaining skew is structural rather than a flaw in the method: around half the households never buy on those promotions, so a large block sits at zero however the scale is stretched. It is therefore reported as a limitation. It also tells the clustering something real, namely that there is a group of households that never respond to promotions.
+
+After the recipe every variable has a mean of 0 and a standard deviation of 1 (second table above), so no variable dominates a distance only because of its units. Beyond three standard deviations there are `r n_outlier_hh` households (`r percent(n_outlier_hh / nrow(soap_prep), accuracy = 0.1)` of 600) with at least one extreme value, and `r n_promo_only` of them are extreme only on the promotion shares. These households are **kept**. They are genuine heavy promotion users, which is exactly the behaviour a segmentation should be able to find, and removing them would hide the group a promotion-led client most wants to identify. If the clustering is found to be driven by a handful of them, the sensitivity of the result to these households should be tested in Question 2(c).
+
+<!--
+INSTRUCTIONS FOR EVERYONE USING THIS SECTION (Erwyna wrote it, so ask me if anything is unclear)
+
+This section produces the objects the rest of the report depends on. Do NOT change them without telling me:
+  soap_clean       all 600 households, demographics recoded (zeros and CHILD 5 turned into NA)
+  cluster_vars     the six chosen variables (defined by Taabish in section 6)
+  soap_cluster_raw MemberID plus the six variables before any transformation
+  soap_prep        MemberID plus the six variables, Yeo-Johnson (if needed) then standardised. THIS is what
+                   Shrrii clusters and what Nandhini runs PCA on. Do not standardise it a second time.
+  prep_rec         the fitted recipe (kept so the steps can be explained and reused)
+
+If the team changes cluster_vars at M2, nothing here needs editing: the section recomputes everything from that vector.
+Pay attention to demographics: soap_clean keeps NA. Nandhini decides, per demographic, how to handle NA in profiling.
+-->

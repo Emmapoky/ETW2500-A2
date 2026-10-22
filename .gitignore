@@ -1,0 +1,16 @@
+# R and RStudio
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+# Quarto build output: never commit rendered files, everyone renders their own
+document/*.html
+document/*.pdf
+document/*_files/
+document/.quarto/
+.quarto/
+/.quarto/
+# The submission folder is rebuilt by tools/make_submission.R
+submission/
+.DS_Store
+tools/member_ids.csv

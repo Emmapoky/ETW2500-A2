@@ -1,0 +1,86 @@
+# Question 2(c) and 2(d): Clustering the Households {#sec-cluster}
+
+<!--
+INSTRUCTIONS FOR SHRRII (Q2c and Q2d). Delete this whole comment block when your section is final.
+
+Hi Shrrii. This is the heart of the assignment and it is yours. Only edit THIS file (sections/08_q2cd_clustering.qmd).
+
+THE TASK (spec page 5):
+  (c) Justify the method you used AND the number of groups you chose.
+  (d) Describe each group in terms of how its households purchase bath soap.
+
+WHAT YOU START FROM: the object `soap_prep` (600 rows: MemberID plus the six variables, already skew-corrected and
+standardised by my section 07). Cluster THIS. Do not standardise again. `cluster_vars` holds the six names and
+`soap_clean` holds the original values plus demographics (use it to describe groups in real units).
+Run:  source("tools/load_upstream.R"); load_upstream("08_q2cd_clustering")
+
+USE METHODS WE WERE TAUGHT. In the weekly materials the cluster tutorials used dist(), hclust(), cutree(),
+factoextra::fviz_nbclust() (method "wss" for the elbow and "silhouette"), fviz_dend() and dendextend. Open
+01_Weekly_Materials/Week_05/tut_cluster2_completed in the vault to copy the pattern. Marker asks about functions
+from lectures and tutorials, so lean on those first. Check the lecture slides for k-means (kmeans()) if you want it as well.
+
+WHAT YOU MUST HAND OVER (other people's code depends on it): an object named `soap_clusters`, a tibble with exactly
+two columns:   MemberID,  cluster   (cluster is a factor: "1", "2", ...).
+Nandhini builds the profiling in section 09 on top of it. Name the clusters with meaningful labels in a SEPARATE
+column called `segment` if you like (for example "Loyal heavy buyers"), but keep `cluster` too.
+
+REQUIRED:
+  1. Choose the method and justify it for THIS data (600 households, 6 continuous standardised variables).
+     State the distance (Euclidean) and, if hierarchical, the linkage and why.
+  2. Choose k with evidence: elbow, silhouette, dendrogram. AND business sense: can a client run a promotion for k groups?
+  3. Describe each group in business words: volume, frequency, promotion use, loyalty. Give each group a name.
+     Use a means table in ORIGINAL units (join soap_clean) so a manager can read it, plus group sizes.
+
+EXTRAS FOR HD:
+  a. Run a SECOND method (hierarchical AND k-means) and compare with a cross table. A one line agreement statement is enough.
+  b. Stability: rerun with other seeds or starts and report if the same groups come back.
+  c. Show several values of k side by side (for example 2 to 6) and say why the runner up lost.
+  d. A standardised centroid chart (the mean of each prepared variable per group) so the contrast is visible.
+  e. One paragraph per group: who they are, how they buy, which promotion suits them.
+  f. Under EVERY output a sentence of interpretation. That is where the marks are.
+
+IMPORTANT: the seed is already set once in section 03 (set.seed(55789)). If you run anything random (kmeans), set
+the seed again right above that chunk, so your result repeats exactly.
+
+Remove each TODO(Shrrii) when done. tools/check_todos.R lists what is left.
+-->
+
+## Choosing the method
+
+TODO(Shrrii): which method, which distance, which linkage, and why it suits this data.
+
+## Choosing the number of groups
+
+```{r}
+#| label: choose-k
+#| eval: false
+
+# TODO(Shrrii): elbow (fviz_nbclust, method = "wss") and silhouette (method = "silhouette") on soap_prep,
+# using only the six cluster_vars columns (not MemberID):   select(soap_prep, all_of(cluster_vars))
+# TODO(Shrrii): dendrogram with fviz_dend() if you use hierarchical clustering.
+# TODO(Shrrii): change eval: false to eval: true once your code is in.
+```
+
+TODO(Shrrii): the evidence for k, in words, plus the business reasoning.
+
+## The final grouping
+
+```{r}
+#| label: final-clusters
+#| eval: false
+
+# TODO(Shrrii): build the final clustering and END this chunk with the handover object:
+#   soap_clusters <- tibble(MemberID = soap_prep$MemberID, cluster = factor(<your cutree or kmeans result>))
+```
+
+## Describing each group (2d)
+
+```{r}
+#| label: describe-groups
+#| eval: false
+
+# TODO(Shrrii): group sizes; mean of each cluster_vars variable per group in ORIGINAL units (join soap_clean);
+# a standardised centroid chart.
+```
+
+TODO(Shrrii): one paragraph per group, with a name, how its households buy bath soap, and a suited promotion.

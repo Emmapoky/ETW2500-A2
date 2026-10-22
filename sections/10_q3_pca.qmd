@@ -1,0 +1,56 @@
+# Question 3: Dimension Reduction with PCA {#sec-pca}
+
+<!--
+INSTRUCTIONS FOR NANDHINI (Q3). Delete this whole comment block when final.
+
+Hi Nandhini. This is your second section. Only edit THIS file (sections/10_q3_pca.qmd). You can start TODAY, it does not
+depend on Shrrii.
+
+THE TASK (spec page 5): apply a dimension reduction technique covered in class to summarise the SIX variables used in
+Question 2 into a smaller number of components. Justify the number of components you retain. Name and describe each
+retained component in terms of the variables that define it.
+
+WHAT YOU START FROM: `soap_prep` (600 rows, MemberID + the six variables, already standardised in section 07, so
+do NOT standardise again) and `cluster_vars` (the six names).
+Run:  source("tools/load_upstream.R"); load_upstream("10_q3_pca")
+
+USE WHAT WAS TAUGHT. The Week 7 PCA script (01_Weekly_Materials/Week_07/PCA_R_script.R) uses prcomp(), tidy(..., matrix =
+"loadings"), tidy(..., matrix = "eigenvalues") and the tidymodels route: recipe() |> step_normalize() |> step_pca() with
+prep() and juice()/bake(). Follow that pattern. Because the data are already standardised, ask yourself and write down
+whether step_normalize is needed again in the recipe (a second pass changes nothing, but explain it).
+
+REQUIRED:
+  1. The PCA itself on the six variables.
+  2. Variance explained table (each component and cumulative), and a scree plot.
+  3. Justify how many components you keep, with a stated rule (for example eigenvalue greater than 1, share of variance,
+     elbow in the scree plot). Show which rules agree.
+  4. Loadings table or chart. Name each retained component and describe it using the variables with large loadings.
+
+EXTRAS FOR HD:
+  a. Read the SIGN of every loading correctly and say it out loud in a sentence ("high PC1 means ...").
+  b. Do not name a component after one variable if three load on it. Name the pattern.
+  c. A biplot or a PC1 versus PC2 scatter coloured by Shrrii's clusters (soap_clusters). This ties Q3 back to Q2.
+  d. A limitation sentence: what does PCA lose and when would you not use it?
+
+SEED: set.seed(55789) is already set in section 03. PCA itself is not random.
+
+Remove each TODO(Nandhini) when done. tools/check_todos.R lists what is left.
+-->
+
+## Running the PCA
+
+```{r}
+#| label: pca-fit
+#| eval: false
+
+# TODO(Nandhini): fit the PCA on select(soap_prep, all_of(cluster_vars)).
+# TODO(Nandhini): change eval: false to eval: true once your code is in.
+```
+
+## How many components to keep
+
+TODO(Nandhini): the table, the scree plot, the rule, the decision, in that order.
+
+## Naming and describing the components
+
+TODO(Nandhini): the loadings, then a name and a description for each retained component.

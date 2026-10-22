@@ -1,0 +1,87 @@
+# Question 1, Part B: Creating MaxBrShare {#sec-q1b}
+
+<!--
+INSTRUCTIONS FOR RIELY (Q1 Part B, items 4 to 7). Delete this whole comment block when your section is final.
+
+Hi Riely. This is your section. Only edit THIS file (sections/05_q1b_maxbrshare.qmd).
+
+WHAT THE SPEC ASKS (read the PDF, page 4):
+  4. Create MaxBrShare: for each household, the largest share among the eight NAMED brands
+     (Br57_144 to Br5). Do NOT include BrOthers. Must be calculated ROW BY ROW, not the max of a
+     whole column.
+  5. Use summary(). Confirm all values are between 0 and 1. How many households have
+     MaxBrShare = 0? What do they have in common in NoBrands? Why does leaving out BrOthers cause it?
+  6. Add MaxBrShare to households X, Y and Z (brand_example.csv), recalculate the Euclidean distances using
+     MaxBrShare alone, compare with Taabish's item 2 answer and explain why this fixes the problem.
+  7. One or two sentences: why read MaxBrShare together with NoBrands?
+
+WHAT I ALREADY DID FOR YOU: the chunk `maxbrshare-starter` below creates `soap` with MaxBrShare, so the rest
+of the team's code (which needs `soap`) runs from day one. It is a starter only. YOU must:
+  - understand every line well enough to explain it with no notes (the marker will ask),
+  - keep the object names `soap` and `MaxBrShare` exactly, because other people's code uses them,
+  - then do items 5, 6, 7 and the extras in the chunks below.
+
+EXTRAS FOR HD (do these after the required items are right):
+  a. Compute MaxBrShare a SECOND way (for example with pmax(), or apply()) and prove they agree with all.equal().
+  b. A histogram of MaxBrShare, and a scatter plot of MaxBrShare against NoBrands.
+  c. Check that the nine shares add to about 1 for every household (I already check this in 03, so just say so).
+  d. Write each interpretation as a sentence under its output. "What this means" is where the marks are.
+
+HOW TO WORK: open ErwynaSooW.Rproj, then in the console:
+    source("tools/load_upstream.R"); load_upstream("05_q1b_maxbrshare")
+That loads everything before your section. Then run your chunks one by one.
+Remove every TODO(Riely) line when its job is done. tools/check_todos.R lists what is left.
+-->
+
+## Creating the variable
+
+```{r}
+#| label: maxbrshare-starter
+
+# STARTER: provided by Erwyna so the pipeline runs. Riely owns and must explain this.
+# TODO(Riely): add a comment on each line saying what it does, in your own words.
+soap <- soap_raw |>
+  rowwise() |>                                            # work one household (row) at a time
+  mutate(MaxBrShare = max(c_across(all_of(brand_cols)))) |> # largest of the eight named brand shares
+  ungroup()                                               # leave row-wise mode
+```
+
+TODO(Riely): explain in two sentences, in the report voice, why this is calculated per row and why `BrOthers` is excluded.
+
+## Checking it (item 5)
+
+```{r}
+#| label: maxbrshare-check
+#| eval: false
+
+# TODO(Riely): run summary(soap$MaxBrShare) and confirm the range is 0 to 1.
+# TODO(Riely): count the households with MaxBrShare == 0, and look at their NoBrands.
+# TODO(Riely): change eval: false above to eval: true once your code is in.
+```
+
+TODO(Riely): interpret the output. Which households have MaxBrShare = 0, what is their NoBrands, and why does excluding BrOthers produce this?
+
+## Repeating the distance calculation (item 6)
+
+```{r}
+#| label: maxbrshare-xyz
+#| eval: false
+
+# TODO(Riely): add MaxBrShare to brand_example (X, Y, Z), recompute the Euclidean distances
+# with dist() on MaxBrShare alone, and compare with the answer Taabish got in section 4.
+```
+
+TODO(Riely): explain why the distances now agree with the idea of loyalty.
+
+## Reading MaxBrShare with NoBrands (item 7)
+
+TODO(Riely): one or two sentences.
+
+## Extra: a second method and plots
+
+```{r}
+#| label: maxbrshare-extras
+#| eval: false
+
+# TODO(Riely): second method (pmax or apply), all.equal() against the first, histogram, scatter vs NoBrands.
+```

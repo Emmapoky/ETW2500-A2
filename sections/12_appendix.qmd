@@ -1,0 +1,30 @@
+# Appendix {#sec-appendix .unnumbered}
+
+<!--
+INSTRUCTIONS FOR RIELY. Delete this whole comment block when final.
+Keep this section LAST. It holds three things:
+  1. A packages table with the version of every package we load (use packageVersion() inside a small tibble, not typing).
+     The packages are listed in section 03.
+  2. sessionInfo() in a code chunk, so the marker sees the exact R and package versions that produced the report.
+  3. The reference list. Quarto builds it automatically from document/references.bib; cite with @key in the text. Add entries
+     for any package or source the team cites (key names are in references.bib already for tidyverse and tidymodels).
+-->
+
+## Packages used
+
+TODO(Riely): table of package and version, built with code.
+
+## Session information
+
+```{r}
+#| label: session-info
+#| eval: false
+
+# TODO(Riely): change eval: false to eval: true. Keep this chunk exactly as it is.
+sessionInfo()
+```
+
+## References
+
+::: {#refs}
+:::

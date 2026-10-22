@@ -1,0 +1,11 @@
+# Conclusion and Recommendations {#sec-conclusion}
+
+<!--
+INSTRUCTIONS FOR ERWYNA (me). Written after M3 once the groups and components are agreed. Delete when final.
+Structure: (1) what we found, one short paragraph per segment with its name; (2) the PCA components in one paragraph and
+how they relate to the segments; (3) one promotion recommendation per segment in a table; (4) limitations: 600
+household subset, the "not specified" codes and the CHILD = 5 assumption, one clustering solution, behaviour measured
+over one period only, no causal claims; (5) next steps. Every number must come from inline R code.
+-->
+
+TODO(Erwyna): write after the groups and components are final.

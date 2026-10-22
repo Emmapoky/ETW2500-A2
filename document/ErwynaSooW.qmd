@@ -1,0 +1,82 @@
+---
+title: "Segmenting Bath Soap Households by Purchase Behaviour"
+subtitle: "ETW2500 Unsupervised Learning for Business, Assignment 3, Semester 2, 2026"
+author: "Erwyna Soo Wen Xin"
+date: last-modified
+date-format: "D MMMM YYYY"
+format:
+  html:
+    theme: cosmo
+    css: style.css
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: false
+    code-tools: true
+    smooth-scroll: true
+    fig-align: center
+    fig-format: png
+    embed-resources: true
+  typst:
+    toc: true
+    number-sections: true
+    papersize: a4
+    fig-align: center
+    fig-format: png
+knitr:
+  opts_chunk:
+    dev: ragg_png
+    dpi: 150
+execute:
+  echo: true
+  warning: false
+  message: false
+bibliography: references.bib
+---
+
+<!--
+MAIN FILE (Erwyna owns this). Do NOT write analysis here.
+Each person writes ONLY in their own file inside the sections/ folder.
+This file just stitches the sections together, in order, with include lines.
+See README.md at the project root for who owns which file.
+-->
+
+<!--
+Student IDs are NOT stored in this public repository. They show as "withheld" while we work and are
+filled in from tools/member_ids.csv (Erwyna's computer only, git-ignored) by tools/make_submission.R.
+-->
+
+**Group members (group leader first)**
+
+| Name | Student ID |
+|:--|:--|
+| Erwyna Soo Wen Xin (Group Leader) | withheld |
+| Taabish Farooq Bhat | withheld |
+| Nandhini Hariharan | withheld |
+| Riely Hariri Bin Rafliz | withheld |
+| Naidu Shrrii Shivanie | withheld |
+
+{{< include ../sections/01_introduction.qmd >}}
+
+{{< include ../sections/02_how_to_reproduce.qmd >}}
+
+{{< include ../sections/03_setup_and_data.qmd >}}
+
+{{< include ../sections/04_q1a_distances.qmd >}}
+
+{{< include ../sections/05_q1b_maxbrshare.qmd >}}
+
+{{< include ../sections/06_q2a_variables.qmd >}}
+
+{{< include ../sections/07_q2b_data_prep.qmd >}}
+
+{{< include ../sections/08_q2cd_clustering.qmd >}}
+
+{{< include ../sections/09_q2e_profiling.qmd >}}
+
+{{< include ../sections/10_q3_pca.qmd >}}
+
+{{< include ../sections/11_conclusion.qmd >}}
+
+{{< include ../sections/12_appendix.qmd >}}

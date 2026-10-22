@@ -1,0 +1,64 @@
+# Question 2(a): Choosing the Variables {#sec-q2a}
+
+<!--
+INSTRUCTIONS FOR TAABISH (Q2a). Delete this whole comment block when your section is final.
+
+Hi Taabish. This is your second section. Only edit THIS file (sections/06_q2a_variables.qmd).
+
+THE TASK (spec page 5): using the Key Problem section (purchase behaviour = volume, frequency, susceptibility to
+discounts, brand loyalty) and your Question 1 work, choose the variables to include. Only variables relevant to
+purchase behaviour. Justify your selection INCLUDING your reasons for excluding the other variables.
+Question 3 says "the six variables used in Question 2", so choose EXACTLY SIX.
+
+THINGS I FOUND IN THE DATA THAT YOU MUST REASON WITH:
+  - PurNoPromo + PurPromo6 + PurOtherPromo add up to exactly 1 for every household. They are perfectly
+    redundant: you can only use two of the three. Say why in your write-up.
+  - Value is roughly TotalVol times AvgPrice, so these three describe the same thing in different clothes.
+    Do not pick all three. Think about which one is purchase behaviour and which is "basis of purchase".
+  - The spec's data table labels PrCat1 to PrCat4 and PropCat5 to PropCat15 as "basis of purchase", not purchase
+    behaviour. The brand share columns are replaced by MaxBrShare (Question 1). Decide and defend what to do with each group.
+  - Demographics (SEC, FEH, MT, SEX, AGE, EDU, HS, CHILD, CS, Affluence) are NOT purchase behaviour. They are for profiling later.
+
+WHAT I PUT BELOW: a PROVISIONAL list of six, only so the pipeline runs and Shrrii and Nandhini can start today.
+It is my guess, not a decision. At M2 (Sun 25 Oct) the team locks the final six. You then replace the vector
+`cluster_vars`. KEEP THE OBJECT NAME `cluster_vars`, because sections 7, 8 and 10 use it.
+
+EXTRAS FOR HD:
+  a. A table with EVERY column of bathsoap.csv, a kept/dropped column, and a one line reason. (46 rows, use gt.)
+  b. A correlation heatmap of your final six, and a comment on any pair above 0.7.
+  c. For each of the four ideas say what you considered and rejected, and why the winner is better.
+
+Work with: source("tools/load_upstream.R"); load_upstream("06_q2a_variables")
+Remove each TODO(Taabish) when done. tools/check_todos.R lists what is left.
+-->
+
+## The four ideas of purchase behaviour
+
+TODO(Taabish): one short paragraph. The Key Problem section names volume, frequency, susceptibility to discounts and brand loyalty. Say which variable you use for each and why.
+
+## Selected variables
+
+```{r}
+#| label: select-variables
+
+# PROVISIONAL (Erwyna's guess so the pipeline runs): replace at M2 with the team's final six.
+# TODO(Taabish): replace this vector with the final six and comment why each is in.
+cluster_vars <- c("TotalVol",       # volume
+                  "NoTrans",        # frequency
+                  "PurPromo6",      # discount: promotion code 6
+                  "PurOtherPromo",  # discount: other promotions (PurNoPromo is the leftover, so left out)
+                  "NoBrands",       # loyalty: how many brands
+                  "MaxBrShare")     # loyalty: concentration on one brand (from Question 1)
+```
+
+## Why the others are excluded
+
+```{r}
+#| label: variable-table
+#| eval: false
+
+# TODO(Taabish): build the kept/dropped table for all 46 columns, with a reason for each. Use gt().
+# TODO(Taabish): change eval: false to eval: true once the table exists.
+```
+
+TODO(Taabish): write the justification in prose under the table.

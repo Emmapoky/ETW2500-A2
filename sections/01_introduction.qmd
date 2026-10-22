@@ -1,0 +1,27 @@
+# Introduction {#sec-intro}
+
+## Business problem
+
+XYZ is an Asian market research agency that tracks the purchase behaviour of household panels across more than 100 cities and towns. Its clients are advertising agencies, which use the data to advise on advertising and promotion, and consumer goods manufacturers, which use it to monitor market share. Until now XYZ has segmented markets by purchaser *demographics*. This report segments the bath soap market by purchase *behaviour* instead: how much a household buys (volume), how often it buys (frequency), how strongly it responds to discounts (promotion sensitivity) and how loyal it is to a brand.
+
+Segmenting on behaviour matters commercially because a promotion aimed at the right group is cheaper than one aimed at everyone. If households that only buy on discount can be told apart from households that are loyal to one brand, a client can run several different promotions at different times of the year, and can design reward schemes that deepen brand loyalty where it already exists. The demographics are then used afterwards to *profile* each behavioural segment, which shows who the segments are.
+
+## Objectives
+
+This report answers three questions on a panel of 600 households:
+
+1. **Question 1, brand loyalty.** Why raw brand shares are a poor basis for measuring loyalty, and how to replace them with a single variable, `MaxBrShare`.
+2. **Question 2, segmentation.** Select behavioural variables, prepare them, group the households with cluster analysis, describe each group and profile the groups with demographics.
+3. **Question 3, dimension reduction.** Summarise the six segmentation variables into a smaller number of components with principal component analysis.
+
+## Approach
+
+The analysis runs in one line of dependencies. The loyalty variable `MaxBrShare` (Question 1) feeds the choice of six behaviour variables (Question 2a). Those six are cleaned, corrected for skewness and standardised (Question 2b). The prepared data are then clustered and the groups described (Question 2c and 2d) and profiled with demographics (Question 2e). The same six prepared variables are also summarised by principal component analysis (Question 3).
+
+::: {.callout-note}
+## Executive summary
+
+<!-- TODO(Erwyna): write this LAST, after the groups and components are agreed at M3. Five bullets: how many segments and what they are called, the one strongest contrast between them, what the PCA components are, one promotion recommendation per segment, and the main limitation. Every number must be typed with inline R code, never copied by hand. Delete this comment when done. -->
+
+*To be completed once the analysis is final.*
+:::
