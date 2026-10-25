@@ -1,30 +1,42 @@
 # Appendix {#sec-appendix .unnumbered}
 
-<!--
-INSTRUCTIONS FOR RIELY. Delete this whole comment block when final.
-Keep this section LAST. It holds three things:
-  1. A packages table with the version of every package we load (use packageVersion() inside a small tibble, not typing).
-     The packages are listed in section 03.
-  2. sessionInfo() in a code chunk, so the marker sees the exact R and package versions that produced the report.
-  3. The reference list. Quarto builds it automatically from document/references.bib; cite with @key in the text. Add entries
-     for any package or source the team cites (key names are in references.bib already for tidyverse and tidymodels).
--->
+## Packages used {.unnumbered}
 
-## Packages used
+The table records the installed versions of every package explicitly loaded in the shared setup, together with the rendering dependencies. These versions are read from the R library at execution time, rather than transcribed from a previous run. The complete attached-package and namespace information follows in `sessionInfo()`.
 
-TODO(Riely): table of package and version, built with code.
+```{r}
+#| label: tbl-appendix-package-versions
+#| tbl-cap: "R packages loaded by the shared setup and dependencies used for rendering."
 
-## Session information
+# Keep this list aligned with the explicit package calls in the shared setup.
+appendix_packages <- tibble(
+  package = c("pacman", "tidyverse", "tidymodels", "here", "janitor", "gt", "scales",
+              "patchwork", "factoextra", "cluster", "dendextend", "knitr", "rmarkdown", "ragg"),
+  role = c(rep("Shared setup", 11), rep("Rendering", 3))
+) |>
+  mutate(version = purrr::map_chr(package, \(pkg) as.character(packageVersion(pkg))))
+
+appendix_packages |>
+  select(package, version, role) |>
+  gt() |>
+  cols_label(package = "Package", version = "Installed version", role = "Use in this report")
+```
+
+The table identifies the computational environment used for this particular render. Matching these versions helps another reader investigate differences between runs, although a version table alone does not install or lock dependencies. R and Quarto versions are recorded in @sec-reproduce, and the references below identify the course and software sources used in the report.
+
+## Session information {.unnumbered}
 
 ```{r}
 #| label: session-info
-#| eval: false
 
-# TODO(Riely): change eval: false to eval: true. Keep this chunk exactly as it is.
 sessionInfo()
 ```
 
-## References
+This output records the running R version, operating system, locale, attached packages and loaded namespaces. It supplements the explicit package table with dependencies loaded indirectly by the analysis.
+
+## References {.unnumbered}
+
+Course references are listed by their supplied titles and teaching weeks. Where the material does not state a publication date, it is cited without inventing one; page references identify the concepts used in Question 1 and the reproduction instructions. Uncited bibliography entries from the project template are not included in the rendered reference list.
 
 ::: {#refs}
 :::

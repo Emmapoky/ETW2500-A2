@@ -1,27 +1,48 @@
 # How to Reproduce This Report {#sec-reproduce}
 
-<!--
-INSTRUCTIONS FOR RIELY (reproducibility, rubric criterion 1, worth 10 marks). Delete this whole comment block when final.
+The report follows the course's R-project workflow: keep data and document files together, use project-relative paths, and generate results from visible code [@etw2500tutorial2]. R supplies the statistical computation [@rcore2025], with tidyverse tools for data handling and graphics [@wickham2019tidyverse] and tidymodels for the shared modelling workflow [@kuhn2020tidymodels].
 
-Hi Riely. This short section and the appendix (section 12) are yours, on top of Q1 Part B. Only edit THIS file and
-sections/12_appendix.qmd.
+1. **Extract the complete project.** Unzip the submitted archive into a writable folder. Keep `ErwynaSooW.Rproj`, `data/bathsoap.csv`, `data/brand_example.csv`, and the `document/` folder together. The latter contains `ErwynaSooW.qmd`, its bibliography, stylesheet and rendered HTML/PDF. The working repository also contains `sections/` and `tools/`; retain these when using that version, because its main document includes the section files. The leader's submission copy combines them into one Quarto file.
 
-The marker wants "excellent documentation, fully reproducible with comprehensive instructions". Write the steps so that a
-stranger can render this report from the zip without asking us anything. Test them: ask a teammate who has NOT seen the
-project to follow your steps on their own laptop at M4 (Sat 31 Oct) and fix every place they get stuck.
+2. **Check the software.** Install R and the Quarto CLI. The table below records the versions actually executing this render; exact package versions appear in the [appendix](#sec-appendix). The verification on this computer used VS Code 1.143.0 as the editor and command-line rendering. RStudio is an optional alternative editor, and was not used in that verification, so no unverified RStudio version is claimed. RStudio users can check their installed version under **Help > About RStudio**; the reproducibility requirements are the R, Quarto and package versions, rather than the choice of editor.
 
-WRITE (plain English, numbered steps):
-  1. What the zip contains (the Rproj, the data folder, the document folder) and what each part is for.
-  2. Which software is needed, with version numbers (R, RStudio, Quarto). Find them with R.version.string and
-     quarto --version, and write the real numbers.
-  3. Open ErwynaSooW.Rproj first, and explain why (it sets the working folder, and here() depends on it).
-  4. Packages: pacman installs missing ones on the first render. Say which, and that the first render needs internet.
-  5. Render: open document/ErwynaSooW.qmd and press Render, or run quarto render document/ErwynaSooW.qmd.
-  6. What outputs appear, and where.
-  7. The seed (55789) and what it makes repeatable.
-  8. Known issues and fixes (for example "if a package fails to install, run install.packages('name') once").
+```{r}
+#| label: tbl-reproduction-software
+#| tbl-cap: "Software versions executing this report."
 
-Remove each TODO(Riely) when done. tools/check_todos.R lists what is left.
--->
+# Use base R here because the shared package-setup section runs later in the document.
+reproduction_quarto_version <- trimws(system2("quarto", "--version", stdout = TRUE))
+knitr::kable(data.frame(
+  Software = c("R", "Quarto CLI", "Platform"),
+  Version = c(as.character(getRversion()), reproduction_quarto_version,
+              R.version$platform)
+))
+```
 
-TODO(Riely): write the numbered reproduction steps described above.
+3. **Open the project root.** In RStudio, open `ErwynaSooW.Rproj` first. In VS Code, use **File > Open Folder** to open the folder containing that file, then open a terminal in that folder. This gives the project-relative paths used by `here()` a consistent root; do not change the working directory to `document/` or move either CSV file.
+
+4. **Prepare the R dependencies once.** Before the first render, run the following in an R console. These are installation instructions, rather than a code chunk executed during rendering.
+
+```r
+install.packages(c("pacman", "knitr", "rmarkdown", "ragg"),
+                 repos = "https://cloud.r-project.org")
+```
+
+   `pacman` must already be installed because the shared setup begins with `library(pacman)`. Its `p_load()` call then installs any missing packages from this list: `tidyverse`, `tidymodels`, `here`, `janitor`, `gt`, `scales`, `patchwork`, `factoextra`, `cluster` and `dendextend`. The first render therefore needs internet access and a writable R library. `knitr` and `rmarkdown` support execution, and `ragg` provides the graphics device specified in the document header. After installation, open a fresh R session so updated packages are loaded consistently.
+
+5. **Render both required formats.** From the project-root terminal, run the two commands below. In RStudio, the **Render** dropdown provides the equivalent HTML and Typst choices. The PDF format in this project's YAML is `typst`, so select that format explicitly; a separate LaTeX installation is not needed for this route [@quarto].
+
+```bash
+quarto render document/ErwynaSooW.qmd --to html
+quarto render document/ErwynaSooW.qmd --to typst
+```
+
+6. **Check the outputs.** The main output is `document/ErwynaSooW.html`, and the attachment is `document/ErwynaSooW.pdf`. Open both and check that tables, figures, citations and visible code appear correctly. Every reported result is calculated from the supplied CSV files; no saved `.RData` workspace is needed. The HTML is self-contained because the YAML embeds its resources. In the working repository, `source("tools/check_todos.R")` lists unfinished team sections; a final submission should contain none of those markers. Only the group leader builds the submission archive.
+
+7. **Preserve reproducibility.** The shared setup sets `set.seed(55789)` before the analyses. A fixed seed makes random operations repeatable when the data, software versions and random-operation order are unchanged; it does not itself guarantee identical results across changed software or code. The course uses a seed for random k-means initialisation [@etw2500cluster2]. Question 1's maxima and distances are deterministic and do not need an additional seed. The appendix records package versions and `sessionInfo()` from the actual run.
+
+8. **Resolve common setup issues.** If `quarto` is not recognised, install the CLI, add its `bin` directory to `PATH`, and reopen the terminal before rendering. This also lets the software-version check inside the report find the CLI. If R cannot find a package, check that Quarto uses the intended R installation with `quarto check knitr`, then install that package into the library shown by `.libPaths()` in that R installation. A missing `pacman` or `ragg` is resolved by step 4. If a CSV or included section is missing, re-extract the complete project and verify the folder layout in step 1. If a render stops in an unfinished teammate section, return the error to its owner rather than replacing real analysis with dummy results. The source-share exceptions documented in @sec-q1b are retained and do not prevent rendering.
+
+::: {.callout-note title="Final handover check"}
+A clean-session render verifies automated execution. The team plan also requires a teammate who has not worked on the setup to follow these instructions on another computer at the full-draft review. That human test must be completed and any difficulties resolved before the final submission; it is not implied by successful rendering on the author's computer.
+:::
