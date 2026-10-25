@@ -22,7 +22,7 @@ appendix_packages |>
   cols_label(package = "Package", version = "Installed version", role = "Use in this report")
 ```
 
-The table identifies the computational environment used for this particular render. Matching these versions helps another reader investigate differences between runs, although a version table alone does not install or lock dependencies. R and Quarto versions are recorded in @sec-reproduce, and the references below identify the course and software sources used in the report.
+The table identifies the computational environment used for this particular render. Matching these versions helps another reader investigate differences between runs, although a version table alone does not install or lock dependencies. R and Quarto versions are recorded in @sec-reproduce.
 
 ## Session information {.unnumbered}
 
@@ -33,10 +33,6 @@ sessionInfo()
 ```
 
 This output records the running R version, operating system, locale, attached packages and loaded namespaces. It supplements the explicit package table with dependencies loaded indirectly by the analysis.
-
-## References {.unnumbered}
-
-Course references are listed by their supplied titles and teaching weeks. Where the material does not state a publication date, it is cited without inventing one; page references identify the concepts used in Question 1 and the reproduction instructions. Uncited bibliography entries from the project template are not included in the rendered reference list.
 
 ::: {#refs}
 :::
