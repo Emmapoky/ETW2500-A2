@@ -1,56 +1,394 @@
 # Question 3: Dimension Reduction with PCA {#sec-pca}
 
 <!--
-INSTRUCTIONS FOR NANDHINI (Q3). Delete this whole comment block when final.
-
-Hi Nandhini. This is your second section. Only edit THIS file (sections/10_q3_pca.qmd). You can start TODAY, it does not
-depend on Shrrii.
-
-THE TASK (spec page 5): apply a dimension reduction technique covered in class to summarise the SIX variables used in
-Question 2 into a smaller number of components. Justify the number of components you retain. Name and describe each
-retained component in terms of the variables that define it.
-
-WHAT YOU START FROM: `soap_prep` (600 rows, MemberID + the six variables, already standardised in section 07, so
-do NOT standardise again) and `cluster_vars` (the six names).
-Run:  source("tools/load_upstream.R"); load_upstream("10_q3_pca")
-
-USE WHAT WAS TAUGHT. The Week 7 PCA script (01_Weekly_Materials/Week_07/PCA_R_script.R) uses prcomp(), tidy(..., matrix =
-"loadings"), tidy(..., matrix = "eigenvalues") and the tidymodels route: recipe() |> step_normalize() |> step_pca() with
-prep() and juice()/bake(). Follow that pattern. Because the data are already standardised, ask yourself and write down
-whether step_normalize is needed again in the recipe (a second pass changes nothing, but explain it).
-
-REQUIRED:
-  1. The PCA itself on the six variables.
-  2. Variance explained table (each component and cumulative), and a scree plot.
-  3. Justify how many components you keep, with a stated rule (for example eigenvalue greater than 1, share of variance,
-     elbow in the scree plot). Show which rules agree.
-  4. Loadings table or chart. Name each retained component and describe it using the variables with large loadings.
-
-EXTRAS FOR HD:
-  a. Read the SIGN of every loading correctly and say it out loud in a sentence ("high PC1 means ...").
-  b. Do not name a component after one variable if three load on it. Name the pattern.
-  c. A biplot or a PC1 versus PC2 scatter coloured by Shrrii's clusters (soap_clusters). This ties Q3 back to Q2.
-  d. A limitation sentence: what does PCA lose and when would you not use it?
-
-SEED: set.seed(55789) is already set in section 03. PCA itself is not random.
-
-Remove each TODO(Nandhini) when done. tools/check_todos.R lists what is left.
+DRAFT NOTE (Nandhini). Everything here runs on soap_prep and cluster_vars, so it does not wait for anyone.
+The component NAMES (pc_names, pc_meaning) are written by hand for the provisional six variables. If Taabish
+changes cluster_vars, a warning paragraph appears in the report: re-read the loadings and rewrite the names.
+The last plot is coloured by Shrrii's clusters once soap_clusters exists; until then it is plain grey.
+When final: delete this note and every TODO(Nandhini).
+Work with: source("tools/load_upstream.R"); load_upstream("10_q3_pca")
 -->
+
+Question 2 described each household with six purchase behaviour variables. Principal component analysis (PCA) asks whether those six can be summarised by fewer, new variables, called components, without losing much information. Each component is a weighted combination of the six, built so that the first captures as much of the variation between households as possible, the second captures as much of what is left as possible while being uncorrelated with the first, and so on. If the six variables overlap, a few components carry most of the information, which makes the households easier to describe and to plot.
+
+## Is PCA worth doing on these variables?
+
+PCA can only compress variables that move together. If the six were unrelated, every component would carry about the same share and nothing would be gained.
+
+```{r}
+#| label: pca-correlation
+
+# Correlations between the six prepared variables (the same data the clustering used)
+pca_cor <- soap_prep |>
+  select(all_of(cluster_vars)) |>
+  cor()
+
+# The strongest pair, used in the text below
+top_pair <- as_tibble(pca_cor, rownames = "var1") |>
+  pivot_longer(-var1, names_to = "var2", values_to = "r") |>
+  filter(var1 < var2) |>                       # each pair once, no diagonal
+  slice_max(abs(r), n = 1)
+
+# Each variable's largest correlation with any other variable
+max_cor <- as_tibble(pca_cor, rownames = "variable") |>
+  pivot_longer(-variable, names_to = "other", values_to = "r") |>
+  filter(variable != other) |>
+  group_by(variable) |>
+  summarise(max_abs_r = max(abs(r)))
+loner <- max_cor |> slice_min(max_abs_r, n = 1)
+
+as_tibble(pca_cor, rownames = "variable") |>
+  gt() |>
+  fmt_number(-variable, decimals = 2) |>
+  data_color(columns = -variable, palette = c(pal[4], "white", pal[1]), domain = c(-1, 1)) |>
+  tab_header(title = "Correlations between the six purchase behaviour variables")
+```
+
+The strongest relationship is between `r top_pair$var1` and `r top_pair$var2` (r = `r round(top_pair$r, 2)`), so there is real overlap for PCA to exploit. At the other extreme, `r loner$variable` is the most independent variable (its largest correlation with any other is `r round(loner$max_abs_r, 2)`)`r if (loner$max_abs_r < 0.2) ", so it cannot be folded into the others and is likely to need a component of its own" else ""`.
 
 ## Running the PCA
 
+The PCA follows the tidymodels pattern from the Week 7 tutorial: a recipe with `step_normalize()` and `step_pca()`, estimated with `prep()`.
+
 ```{r}
 #| label: pca-fit
-#| eval: false
 
-# TODO(Nandhini): fit the PCA on select(soap_prep, all_of(cluster_vars)).
-# TODO(Nandhini): change eval: false to eval: true once your code is in.
+pca_data <- soap_prep |> select(MemberID, all_of(cluster_vars))
+
+pca_rec <- recipe(~ ., data = pca_data) |>
+  update_role(MemberID, new_role = "id") |>       # keep the ID, but leave it out of the PCA
+  step_normalize(all_numeric_predictors()) |>     # see the note below
+  step_pca(all_numeric_predictors(), num_comp = length(cluster_vars), id = "pca") |>  # keep all six for now
+  prep()
+
+# What step_normalize learned: if the data were already standardised, means are 0 and sds are 1
+norm_check <- tidy(pca_rec, number = 1) |>
+  group_by(statistic) |>
+  summarise(furthest = max(abs(value - if_else(statistic == "mean", 0, 1))))
+
+# Cross-check against base R: prcomp() should give the same variances
+pca_base <- prcomp(select(pca_data, all_of(cluster_vars)))
 ```
+
+**Is `step_normalize()` needed again?** PCA must be run on standardised data, otherwise the variable with the largest units (volume) would dominate the first component simply because its numbers are bigger. `soap_prep` was already standardised in @sec-prep, so this step changes nothing here: `r if (max(norm_check$furthest) < 1e-8) "the means it learned are all 0 and the standard deviations all 1, apart from rounding error in the last decimal places" else paste0("the means and standard deviations it learned differ from 0 and 1 by up to ", signif(max(norm_check$furthest), 2), ", which should be checked")`. It is kept so that the recipe is safe on its own: if it were ever run on unprepared data, it would still give the right answer. All `r length(cluster_vars)` components are kept at this stage, so that the number to retain can be chosen from the evidence below rather than fixed in advance.
 
 ## How many components to keep
 
-TODO(Nandhini): the table, the scree plot, the rule, the decision, in that order.
+```{r}
+#| label: pca-variance
+
+pca_var <- tidy(pca_rec, id = "pca", type = "variance") |>
+  pivot_wider(names_from = terms, values_from = value) |>
+  transmute(component,
+            eigenvalue = variance,
+            percent    = `percent variance`,
+            cumulative = `cumulative percent variance`)
+
+# The variances match base R's prcomp() (eigenvalue = sd squared)
+same_as_prcomp <- isTRUE(all.equal(pca_var$eigenvalue, pca_base$sdev^2, check.attributes = FALSE))
+
+pca_var |>
+  gt() |>
+  fmt_number(eigenvalue, decimals = 3) |>
+  fmt_number(c(percent, cumulative), decimals = 1, pattern = "{x}%") |>
+  cols_label(component = "Component", eigenvalue = "Eigenvalue",
+             percent = "Variance explained", cumulative = "Cumulative") |>
+  tab_header(title = "Variance explained by each component")
+```
+
+```{r}
+#| label: pca-scree
+#| fig-width: 10
+
+# Two common rules, worked out from the table
+n_kaiser <- sum(pca_var$eigenvalue > 1)                 # Kaiser: eigenvalue above 1
+n_70     <- which(pca_var$cumulative >= 70)[1]          # enough components for 70% of the variation
+n_keep   <- n_70                                         # the decision (explained in the text)
+
+scree <- pca_var |>
+  ggplot(aes(component, eigenvalue)) +
+  geom_hline(yintercept = 1, linetype = "dashed", colour = pal[6]) +
+  geom_line(colour = pal[1]) +
+  geom_point(aes(colour = component <= n_keep), size = 3, show.legend = FALSE) +
+  scale_colour_manual(values = c(`TRUE` = pal[1], `FALSE` = pal[6])) +
+  scale_x_continuous(breaks = pca_var$component) +
+  labs(title = "Scree plot", subtitle = "Dashed line: eigenvalue of 1 (Kaiser rule)",
+       x = "Component", y = "Eigenvalue")
+
+cumul <- pca_var |>
+  ggplot(aes(component, cumulative / 100)) +
+  geom_col(aes(fill = component <= n_keep), show.legend = FALSE) +
+  geom_hline(yintercept = 0.7, linetype = "dashed", colour = pal[6]) +
+  scale_fill_manual(values = c(`TRUE` = pal[1], `FALSE` = pal[6])) +
+  scale_x_continuous(breaks = pca_var$component) +
+  scale_y_continuous(labels = percent) +
+  labs(title = "Cumulative variance explained", subtitle = "Dashed line: 70%",
+       x = "Component", y = NULL)
+
+scree + cumul
+```
+
+```{r}
+#| label: pca-keep-values
+#| echo: false
+
+eig       <- pca_var$eigenvalue
+last_kept <- eig[n_keep]
+next_eig  <- eig[(n_keep + 1):min(n_keep + 2, length(eig))]   # the next one or two after the cut
+cum_keep  <- pca_var$cumulative[n_keep]
+lost      <- 100 - cum_keep
+```
+
+The table shows that the first component explains `r round(pca_var$percent[1], 1)`% of the variation on its own, and each further component adds less. Three rules were used to decide how many to keep, and they are read together rather than one in isolation:
+
+1. **Kaiser rule** (keep components with an eigenvalue above 1, meaning the component carries more information than a single original variable): `r n_kaiser` component`r if (n_kaiser == 1) "" else "s"`.
+2. **Share of variance** (keep enough to explain at least 70% of the variation): `r n_70` component`r if (n_70 == 1) "" else "s"`, together explaining `r round(cum_keep, 1)`%.
+3. **Scree plot** (keep the components before the curve flattens): after component `r n_keep` the eigenvalues drop to `r paste(round(next_eig, 2), collapse = " and ")`, `r if (length(next_eig) == 2 && abs(diff(next_eig)) < 0.1) "which are almost level, so the curve flattens there" else "which marks where the curve starts to flatten"`.
+
+`r if (n_kaiser == n_70) paste0("The rules agree, so **", n_keep, " components are retained**.") else paste0("The rules disagree (Kaiser says ", n_kaiser, ", the 70% rule says ", n_70, "). **", n_keep, " components are retained**, following the share of variance rule, because a summary that keeps less than 70% of the information would describe the households too loosely to be useful.")` `r if (abs(last_kept - 1) < 0.05) paste0("The last retained component has an eigenvalue of ", round(last_kept, 3), ", only just above 1, so the Kaiser rule alone would be a weak reason to keep it; the share of variance rule is what makes the case.")` Together the retained components keep `r round(cum_keep, 1)`% of the information while reducing `r length(cluster_vars)` variables to `r n_keep` dimensions`r if (next_eig[1] < 1) paste0(", and the ", round(lost, 1), "% left out is spread over components that each carry less than a single original variable") else ""`.
+
+`r if (same_as_prcomp) "As a check, base R's prcomp() gives exactly the same eigenvalues as the recipe." else "Note: prcomp() and the recipe disagree, which needs checking."`
 
 ## Naming and describing the components
 
-TODO(Nandhini): the loadings, then a name and a description for each retained component.
+The **loadings** are the weights each original variable gets in a component. A loading far from 0 (here, beyond ±0.4, a common cut-off) means the variable helps define that component; its sign says whether the variable rises or falls as the component score rises. The sign of a whole component is arbitrary in PCA (multiplying every loading by -1 describes the same component), so each component is flipped, where needed, so that its largest loading is positive. That makes "a high score" read naturally.
+
+```{r}
+#| label: pca-loadings
+
+kept_pcs <- paste0("PC", seq_len(n_keep))
+
+pca_load_raw <- tidy(pca_rec, id = "pca", type = "coef") |>
+  filter(component %in% kept_pcs) |>
+  select(variable = terms, component, value)
+
+# Flip each component so its largest loading is positive (this does not change the PCA, only its direction)
+pc_flip <- pca_load_raw |>
+  group_by(component) |>
+  slice_max(abs(value), n = 1, with_ties = FALSE) |>
+  ungroup() |>
+  transmute(component, flip = sign(value))
+
+pca_load <- pca_load_raw |>
+  left_join(pc_flip, by = "component") |>
+  mutate(value  = value * flip,
+         strong = abs(value) >= 0.4)
+
+pca_load |>
+  ggplot(aes(value, fct_rev(factor(variable, levels = cluster_vars)), fill = strong)) +
+  geom_col() +
+  geom_vline(xintercept = c(-0.4, 0.4), linetype = "dashed", colour = pal[6]) +
+  facet_wrap(~ factor(component, levels = kept_pcs)) +
+  scale_fill_manual(values = c(`TRUE` = pal[1], `FALSE` = pal[6]),
+                    labels = c(`TRUE` = "Defines the component (|loading| ≥ 0.4)", `FALSE` = "Weak")) +
+  labs(title = "Loadings of the retained components",
+       x = "Loading", y = NULL, fill = NULL)
+```
+
+```{r}
+#| label: pca-loadings-table
+
+pca_load_wide <- pca_load |>
+  select(variable, component, value) |>
+  pivot_wider(names_from = component, values_from = value) |>
+  arrange(factor(variable, levels = cluster_vars))
+
+load_gt <- pca_load_wide |>
+  gt() |>
+  fmt_number(all_of(kept_pcs), decimals = 2) |>
+  cols_label(variable = "Variable") |>
+  tab_header(title = "Loadings (bold: |loading| ≥ 0.4)")
+
+# Bold the loadings that define each component
+for (pc in kept_pcs) {
+  load_gt <- load_gt |>
+    tab_style(style = cell_text(weight = "bold", color = pal[1]),
+              locations = cells_body(columns = all_of(pc),
+                                     rows = which(abs(pca_load_wide[[pc]]) >= 0.4)))
+}
+load_gt
+```
+
+```{r}
+#| label: pca-names
+
+# Plain-English words for each variable, so the descriptions read naturally
+var_words <- c(TotalVol = "total volume bought", NoTrans = "purchase transactions",
+               PurPromo6 = "share bought on promotion 6", PurOtherPromo = "share bought on other promotions",
+               PurNoPromo = "share bought with no promotion", NoBrands = "brands bought",
+               MaxBrShare = "share given to the favourite brand", BrandRuns = "brand runs",
+               Value = "money spent", AvgPrice = "average price paid",
+               VolPerTrans = "volume per transaction", TransPerRun = "transactions per brand run")
+var_word <- \(v) if_else(v %in% names(var_words), unname(var_words[v]), v)
+
+# Names and meanings written by hand from the loadings above, for these six variables
+named_for  <- c("TotalVol", "NoTrans", "PurPromo6", "PurOtherPromo", "NoBrands", "MaxBrShare")
+pc_names   <- c(PC1 = "Shopping activity and brand variety",
+                PC2 = "Loyal bulk buying versus promotion seeking",
+                PC3 = "Response to other promotions")
+pc_meaning <- c(
+  PC1 = "It separates busy shoppers, who buy often, buy a lot and spread their purchases across many brands, from light, occasional buyers. Because the number of brands loads together with the activity variables, buying more goes with trying more brands: in these data the heaviest buyers are not the most loyal ones.",
+  PC2 = "It contrasts households that put most of their volume on one brand and buy large amounts without needing a deal with households whose purchases lean on promotion 6. This is the loyalty versus deal-seeking axis the Key Problem asks about, and it is a different idea from how active a household is (PC1).",
+  PC3 = "It is almost entirely the share bought on other promotions, which is barely related to any other variable. It earns its own component because this kind of promotion response is separate from both activity and loyalty: knowing how much a household buys, or how loyal it is, says little about whether it takes up these offers."
+)
+names_current <- setequal(named_for, cluster_vars) && n_keep == length(pc_names)
+```
+
+TODO(Nandhini): if the final six variables change, re-read the loadings and rewrite pc_names and pc_meaning.
+
+```{r}
+#| label: pca-describe-text
+#| echo: false
+#| results: asis
+
+if (!names_current) {
+  cat("\n\n**Note: the six variables or the number of components have changed since the component names were written. The descriptions below are generated from the loadings, but the names and meanings must be rewritten.**\n\n")
+}
+
+pct_var <- set_names(pca_var$percent, paste0("PC", pca_var$component))
+
+for (pc in kept_pcs) {
+  d   <- pca_load |> filter(component == pc, strong) |> arrange(desc(abs(value)))
+  pos <- d |> filter(value > 0)
+  neg <- d |> filter(value < 0)
+  defined_by <- str_flatten_comma(str_glue_data(d, "{variable} ({sprintf('%+.2f', value)})"), ", and ")
+  direction  <- str_glue("A high {pc} score means more {str_flatten_comma(var_word(pos$variable), ' and ')}",
+                         if (nrow(neg) > 0) " and less {str_flatten_comma(var_word(neg$variable), ' and ')}" else "",
+                         ".")
+  one_var    <- if (nrow(d) == 1) " Only one variable loads strongly, so here the component really is that variable on its own." else ""
+  title      <- if (names_current && pc %in% names(pc_names)) pc_names[[pc]] else "name to be written"
+  meaning    <- if (names_current && pc %in% names(pc_meaning)) pc_meaning[[pc]] else ""
+
+  cat("\n\n**", pc, ": ", title, "** (", round(pct_var[[pc]], 1), "% of the variation). ",
+      "It is defined by ", defined_by, ". ", direction, one_var, " ", meaning, "\n\n", sep = "")
+}
+```
+
+## The households on the components
+
+Each household gets a score on every retained component. Plotting the first two scores shows the households in two dimensions instead of six, with the loadings drawn as arrows: an arrow points in the direction in which that variable increases.
+
+TODO(Nandhini): once Shrrii's clusters are in, check the coloured plot and the paragraph under it.
+
+```{r}
+#| label: pca-scores-plot
+#| fig-width: 8
+#| fig-height: 6
+
+# Component scores, flipped the same way as the loadings
+pca_scores <- bake(pca_rec, new_data = NULL) |>
+  select(MemberID, all_of(kept_pcs)) |>
+  mutate(across(all_of(kept_pcs), \(x) x * pc_flip$flip[pc_flip$component == cur_column()]))
+
+# Arrows: the PC1 and PC2 loadings, stretched so they are visible next to the scores
+arrow_scale <- 0.8 * max(abs(c(pca_scores$PC1, pca_scores$PC2)))
+pca_arrows  <- pca_load |>
+  filter(component %in% c("PC1", "PC2")) |>
+  select(variable, component, value) |>
+  pivot_wider(names_from = component, values_from = value) |>
+  mutate(across(c(PC1, PC2), \(x) x * arrow_scale))
+
+has_clusters <- exists("soap_clusters")
+if (has_clusters) {
+  pca_scores <- pca_scores |> left_join(soap_clusters |> select(MemberID, cluster), by = "MemberID")
+}
+
+ggplot(pca_scores, aes(PC1, PC2)) +
+  {if (has_clusters) geom_point(aes(colour = cluster), alpha = 0.6)
+   else geom_point(colour = pal[6], alpha = 0.5)} +
+  geom_segment(data = pca_arrows, aes(x = 0, y = 0, xend = PC1, yend = PC2),
+               arrow = arrow(length = unit(0.2, "cm")), colour = "black") +
+  geom_label(data = pca_arrows, aes(label = variable), size = 3, alpha = 0.8) +
+  {if (has_clusters) scale_colour_manual(values = pal)} +
+  labs(title = "Households on the first two components",
+       subtitle = if (has_clusters) "Coloured by segment from Question 2" else NULL,
+       x = if (names_current) str_glue("PC1: {pc_names[['PC1']]}") else "PC1",
+       y = if (names_current) str_glue("PC2: {pc_names[['PC2']]}") else "PC2",
+       colour = "Segment")
+```
+
+```{r}
+#| label: pca-biplot-text
+#| echo: false
+#| results: asis
+
+# Arrow length and direction on the PC1 versus PC2 plane (unstretched loadings)
+arr <- pca_load |>
+  filter(component %in% c("PC1", "PC2")) |>
+  select(variable, component, value) |>
+  pivot_wider(names_from = component, values_from = value) |>
+  mutate(length = sqrt(PC1^2 + PC2^2),
+         angle  = atan2(PC2, PC1) * 180 / pi)
+
+# Every pair of well-drawn arrows (length 0.3 or more) and the angle between them
+arrow_pairs <- expand_grid(a = arr$variable, b = arr$variable) |>
+  filter(a < b) |>
+  left_join(arr |> select(a = variable, ang_a = angle, len_a = length), by = "a") |>
+  left_join(arr |> select(b = variable, ang_b = angle, len_b = length), by = "b") |>
+  filter(len_a >= 0.3, len_b >= 0.3) |>
+  mutate(gap = abs(((ang_a - ang_b + 180) %% 360) - 180))    # 0 = same direction, 180 = opposite
+
+same_way  <- arrow_pairs |> filter(gap < 30)
+opposite  <- arrow_pairs |> filter(gap > 150)
+short_arr <- arr |> filter(length < 0.3)
+
+# What moving right (PC1) or up (PC2) means, from the strong loadings
+axis_words <- function(pc) {
+  d   <- pca_load |> filter(component == pc, strong)
+  pos <- d |> filter(value > 0) |> pull(variable)
+  neg <- d |> filter(value < 0) |> pull(variable)
+  paste0("more ", str_flatten_comma(var_word(pos), " and "),
+         if (length(neg) > 0) paste0(" and less ", str_flatten_comma(var_word(neg), " and ")) else "")
+}
+
+pair_text <- \(p) str_flatten(str_glue_data(p, "{a} and {b}"), "; ")      # pairs separated by semicolons
+
+cat("\n\n", str_glue(
+  "Each point is a household. Households further to the right have {axis_words('PC1')}; households higher up ",
+  "have {axis_words('PC2')}. Arrows that point the same way belong to variables that rise together, and arrows ",
+  "that point in opposite directions belong to variables that move against each other. ",
+  if (nrow(same_way) > 0) "Pointing the same way: {pair_text(same_way)}. " else "",
+  if (nrow(opposite) > 0) "Pointing in opposite directions, so households high on one tend to be low on the other: {pair_text(opposite)}. " else "",
+  if (nrow(short_arr) > 0) "The arrow for {str_flatten_comma(short_arr$variable, ' and ')} is short, which means this plot shows it poorly: it is described by a later component instead, so its position here should not be read as meaningful. " else "",
+  "The arrows are drawn longer than their true loadings so that they can be seen next to the points; only their direction and relative length matter."
+), "\n\n", sep = "")
+```
+
+```{r}
+#| label: pca-clusters-text
+#| eval: !expr exists("soap_clusters")
+#| echo: false
+#| results: asis
+
+# How well the segments line up with each component: R squared of the scores on segment
+# (the share of each component's variation explained by which segment a household is in)
+seg_r2 <- map_dbl(kept_pcs, \(pc) summary(lm(reformulate("cluster", pc), data = pca_scores))$r.squared) |>
+  set_names(kept_pcs)
+
+seg_means <- pca_scores |>
+  group_by(cluster) |>
+  summarise(across(all_of(kept_pcs), mean))
+
+pc_lines <- map_chr(kept_pcs, \(pc) {
+  hi <- seg_means |> slice_max(.data[[pc]], n = 1, with_ties = FALSE)
+  lo <- seg_means |> slice_min(.data[[pc]], n = 1, with_ties = FALSE)
+  # seg_label() comes from section 09, which always runs before this section when clusters exist
+  str_glue("- **{pc}**: the segments explain {pct(seg_r2[[pc]])} of its variation. ",
+           "{seg_label(hi$cluster)} scores highest ({round(hi[[pc]], 2)}) and {seg_label(lo$cluster)} lowest ({round(lo[[pc]], 2)}).")
+})
+
+cat("\n\nThe colours show whether the segments from Question 2 separate along the components:\n\n",
+    paste(pc_lines, collapse = "\n"), "\n\n",
+    str_glue("The component the segments follow most closely is {names(which.max(seg_r2))}. ",
+             if (max(seg_r2) >= 0.3) "Because the segments line up clearly with the components, the PCA and the clustering tell the same story from two directions: the clustering finds the groups, and the components name the dimensions on which they differ."
+             else "The segments overlap a lot on these components, so the clustering is picking up differences that are spread across several variables rather than lined up with one or two components."),
+    "\n\n", sep = "")
+```
+
+## What PCA gives up
+
+PCA kept `r round(cum_keep, 1)`% of the information, so `r round(lost, 1)`% of the variation between households is set aside. Three further limits matter for a client:
+
+- **Components are harder to explain than the original variables.** "Shopping activity and brand variety" is a weighted mix of several variables, and a manager may find "number of transactions" easier to act on. This is why the segments in Question 2 were described with the original variables.
+- **PCA only finds straight-line relationships, and is pulled by extreme values.** The skew correction and standardisation in @sec-prep reduce this, but a pattern that is curved, or driven by a small group of heavy promotion users, can be missed or exaggerated.
+- **It cannot compress variables that do not overlap.** `r if (loner$max_abs_r < 0.2) paste0(loner$variable, " was nearly unrelated to the others, so it needed a component to itself. ") else ""`When most variables are unrelated to each other, PCA saves little and should not be used; it is most useful when many variables measure a few underlying ideas.
