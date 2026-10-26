@@ -1,53 +1,132 @@
 # Question 1, Part A: Thinking About Brand Loyalty {#sec-q1a}
 
-<!--
-INSTRUCTIONS FOR TAABISH (Q1 Part A, items 1 to 3). Delete this whole comment block when your section is final.
-
-Hi Taabish. This is your first section. Only edit THIS file (sections/04_q1a_distances.qmd).
-
-THE TASK (spec page 4, "Part A: Think about the problem"):
-  1. Compare the brand loyalty of household X (buys only brand A) with household Y (buys only brand B).
-     On what does brand loyalty depend?
-  2. Read brand_example.csv into R and calculate the Euclidean distance between each pair of households
-     (X-Y, X-Z, Y-Z). Which households do the distances suggest are most similar? Is that consistent with item 1?
-  3. Explain the effect on distance based methods (such as cluster analysis) of using the nine brand share
-     variables unchanged.
-
-I ALREADY LOADED the data for you: `brand_example` exists (see 03_setup_and_data.qmd). It has columns
-Household, BrandA, BrandB. Do not read it again.
-
-HINTS (thinking, not answers):
-  - dist() wants numbers only and keeps row names. Think about how to put the Household names back on the result.
-  - Item 1 is about WHAT loyalty depends on. A household that buys 100% brand A and one that buys 100% brand B:
-    is the brand's identity part of loyalty, or the concentration of purchases?
-  - Item 3 connects the result of item 2 to what a cluster algorithm would do with the nine columns.
-
-EXTRAS FOR HD:
-  a. Show the distance matrix as a small gt table AND a tiny plot of X, Y, Z (BrandA on x, BrandB on y).
-  b. A one line statement of the geometry: where would a household with 0.9/0.1 sit relative to X?
-  c. Under every output write a sentence of interpretation. The marker marks the sentence, not the number.
-
-Work with: source("tools/load_upstream.R"); load_upstream("04_q1a_distances")
-Remove each TODO(Taabish) when done. tools/check_todos.R lists what is left.
--->
+Before any calculation, this part asks what brand loyalty actually is, and whether the nine brand share columns measure it. The answer decides how the loyalty variable is built in @sec-q1b and which variables enter the segmentation in @sec-q2a.
 
 ## Loyalty of households X and Y (item 1)
 
-TODO(Taabish): write your answer. On what does brand loyalty depend?
+Household X buys only brand A and household Y buys only brand B. The two households are **equally loyal**. Each puts 100% of its purchases into a single brand, so neither splits its loyalty across alternatives.
+
+Brand loyalty therefore depends on **how concentrated a household's purchases are**, not on **which brand** receives them. Two things carry that information:
+
+- **Share:** the proportion of a household's volume that goes to its most purchased brand. A share of 1 is complete loyalty and a share of 0.5 is a household that divides itself between two brands.
+- **Concentration:** how many brands the volume is spread over. The fewer the brands, and the more uneven the split, the more loyal the household.
+
+The name of the brand is irrelevant. A household that gives 90% of its volume to brand A and a household that gives 90% to brand B are the same kind of customer, and a client would use the same retention promotion on both.
 
 ## Euclidean distances between X, Y and Z (item 2)
 
+Euclidean distance is the square root of the sum of squared differences across the variables. Here the variables are the two brand shares, so the distance between households $i$ and $j$ is $\sqrt{(A_i - A_j)^2 + (B_i - B_j)^2}$. A small distance means the two households look alike to a distance based method.
+
 ```{r}
 #| label: example-distances
-#| eval: false
 
-# TODO(Taabish): compute all pairwise Euclidean distances from brand_example with dist().
-# TODO(Taabish): put the household names X, Y, Z back on the result and show it with gt().
-# TODO(Taabish): change eval: false to eval: true once your code is in.
+# dist() needs numbers only, so the Household names move into the row names.
+# as.data.frame() first, because tibbles do not keep row names.
+example_shares <- brand_example |>
+  as.data.frame() |>
+  column_to_rownames("Household")
+
+# Euclidean distance between every pair of rows (the default method of dist())
+example_dist <- dist(example_shares, method = "euclidean")
+
+# Turn the dist object into a square table with the household names restored
+as.matrix(example_dist) |>
+  as_tibble(rownames = "Household") |>
+  gt() |>
+  fmt_number(columns = -Household, decimals = 3) |>
+  tab_header(title = "Euclidean distance between households X, Y and Z")
 ```
 
-TODO(Taabish): which pair is closest, and is that consistent with item 1?
+```{r}
+#| label: example-pairs
+
+# One row per pair (each pair once), sorted from closest to furthest
+example_pairs <- as.matrix(example_dist) |>
+  as_tibble(rownames = "from") |>
+  pivot_longer(-from, names_to = "to", values_to = "distance") |>
+  filter(from < to) |>
+  arrange(distance)
+
+example_pairs |>
+  mutate(pair = str_c(from, " and ", to)) |>
+  select(pair, distance) |>
+  gt() |>
+  fmt_number(columns = distance, decimals = 3) |>
+  cols_label(pair = "Pair of households", distance = "Euclidean distance")
+```
+
+```{r}
+#| label: fig-example-geometry
+#| fig-cap: "Households X, Y and Z by brand share. Every household whose two shares add up to 1 lies on the dashed line."
+#| fig-width: 6
+#| fig-height: 4.5
+
+# Straight line segments between each pair, labelled with their distance
+segment_tbl <- example_pairs |>
+  left_join(rename(brand_example, from = Household, x1 = BrandA, y1 = BrandB), by = "from") |>
+  left_join(rename(brand_example, to = Household, x2 = BrandA, y2 = BrandB), by = "to") |>
+  # Label at the midpoint, moved off the line for the longest pair so it does not cover Z
+  mutate(label_x = (x1 + x2) / 2 + if_else(distance == max(distance), 0.18, 0),
+         label_y = (y1 + y2) / 2 + if_else(distance == max(distance), 0.18, 0))
+
+ggplot(brand_example, aes(BrandA, BrandB)) +
+  geom_abline(intercept = 1, slope = -1, linetype = "dashed", colour = "grey60") +
+  geom_segment(data = segment_tbl, aes(x = x1, y = y1, xend = x2, yend = y2),
+               colour = pal[2], linewidth = 0.6) +
+  geom_label(data = segment_tbl,
+             aes(x = label_x, y = label_y, label = round(distance, 3)),
+             size = 3.5, colour = pal[1]) +
+  geom_point(size = 5, colour = pal[1]) +
+  geom_text(aes(label = Household), nudge_x = 0.04, nudge_y = 0.05, fontface = "bold") +
+  coord_equal(xlim = c(-0.1, 1.15), ylim = c(-0.1, 1.15)) +
+  labs(title = "X and Y are furthest apart, yet equally loyal",
+       x = "Share of volume in brand A", y = "Share of volume in brand B")
+```
+
+The closest pairs are `r str_c("(", example_pairs$from[example_pairs$distance == min(example_pairs$distance)], ", ", example_pairs$to[example_pairs$distance == min(example_pairs$distance)], ")", collapse = " and ")`, tied at `r sprintf("%.3f", min(example_pairs$distance))`, while X and Y are the furthest apart at `r sprintf("%.3f", max(example_pairs$distance))`. Household Z splits its volume evenly between the two brands, so it sits halfway between X and Y and is the same distance from each.
+
+**This is not consistent with item 1.** In item 1, X and Y are equally loyal, so they should be the most similar pair on loyalty. The distances say the opposite: X and Y are the most different pair, and each looks more like the half and half household Z. The distance is reading *which brand* was bought, and is blind to *how concentrated* the buying is.
+
+The geometry shows why. Every household with two shares that add up to 1 lies on the dashed line in @fig-example-geometry, and distance along that line measures how far apart two households are in brand choice. A household with shares 0.9 and 0.1 would sit very close to X (a distance of `r sprintf("%.3f", sqrt(0.1^2 + 0.1^2))`) and far from Y (`r sprintf("%.3f", sqrt(0.9^2 + 0.9^2))`), even though a 90% concentration is nearly as loyal as Y's 100%.
 
 ## Using the nine brand shares unchanged (item 3)
 
-TODO(Taabish): explain the effect on cluster analysis.
+Distance based methods such as cluster analysis group households that are close together, so they will inherit the problem in item 2. If the nine brand share variables (eight named brands and `BrOthers`) enter the analysis unchanged, three things go wrong.
+
+1. **Households group by the brand they buy, not by how loyal they are.** Two households that each give all of their volume to a single brand have a squared distance of exactly 2 if the brands differ, and 0 if the brands are the same. So fully loyal households form one tight group per brand and sit far from each other, even though they behave identically.
+2. **Loyalty gets far too much weight.** Nine of the columns would describe brand choice, so one idea (loyalty) would outvote volume, frequency and promotions, which would each be a single column.
+3. **The nine shares are not independent.** They add up to 1 (for all but `r nrow(filter(soap_raw, abs(rowSums(across(all_of(c(brand_cols, "BrOthers")))) - 1) >= 0.01))` households, see @sec-q1b), so any one is almost fixed by the other eight. A distance method counts the same information nine times over.
+
+The next chunk checks this on the real data, using only the households that put **all** of their volume into one named brand.
+
+```{r}
+#| label: nine-share-distances
+
+# The nine share columns: eight named brands plus the pooled BrOthers
+nine_cols <- c(brand_cols, "BrOthers")
+
+# Households that put all of their volume into one single named brand.
+# max.col() finds, for each row, the column (brand) that holds the largest share.
+loyal <- soap_raw |>
+  filter(if_any(all_of(brand_cols), \(x) x == 1)) |>
+  mutate(brand = brand_cols[max.col(across(all_of(brand_cols)), ties.method = "first")])
+
+# Pairwise Euclidean distance on the nine shares, kept as a square matrix
+loyal_dist <- as.matrix(dist(select(loyal, all_of(nine_cols))))
+
+# For each pair of households, were they loyal to the same brand?
+loyal_pairs <- which(upper.tri(loyal_dist), arr.ind = TRUE) |>
+  as_tibble() |>
+  mutate(distance = loyal_dist[cbind(row, col)],
+         same_brand = loyal$brand[row] == loyal$brand[col])
+
+loyal_pairs |>
+  count(same_brand, distance = round(distance, 3)) |>
+  mutate(same_brand = if_else(same_brand, "Same brand", "Different brand")) |>
+  gt() |>
+  cols_label(same_brand = "Loyal to", distance = "Distance on the nine shares",
+             n = "Pairs of households") |>
+  tab_header(title = "Fully loyal households: distance depends only on the brand")
+```
+
+There are `r nrow(loyal)` households that are completely loyal to one named brand, which makes `r nrow(loyal_pairs)` pairs. Every pair that shares a brand has a distance of `r sprintf("%.0f", unique(loyal_pairs$distance[loyal_pairs$same_brand]))`, because their rows are identical. Every pair with different brands has a distance of `r sprintf("%.3f", unique(round(loyal_pairs$distance[!loyal_pairs$same_brand], 3)))`, the square root of 2, and these make up `r scales::percent(mean(!loyal_pairs$same_brand), accuracy = 1)` of all pairs. Behaviour is identical in all `r nrow(loyal)` households, yet the unchanged shares push most of them as far apart as two single brand buyers can be. A clustering algorithm would split them by brand name, which a client cannot use. The brand shares have to be replaced by a variable that measures concentration and ignores identity, which is what `MaxBrShare` does in @sec-q1b.

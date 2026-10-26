@@ -1,64 +1,227 @@
 # Question 2(a): Choosing the Variables {#sec-q2a}
 
-<!--
-INSTRUCTIONS FOR TAABISH (Q2a). Delete this whole comment block when your section is final.
-
-Hi Taabish. This is your second section. Only edit THIS file (sections/06_q2a_variables.qmd).
-
-THE TASK (spec page 5): using the Key Problem section (purchase behaviour = volume, frequency, susceptibility to
-discounts, brand loyalty) and your Question 1 work, choose the variables to include. Only variables relevant to
-purchase behaviour. Justify your selection INCLUDING your reasons for excluding the other variables.
-Question 3 says "the six variables used in Question 2", so choose EXACTLY SIX.
-
-THINGS I FOUND IN THE DATA THAT YOU MUST REASON WITH:
-  - PurNoPromo + PurPromo6 + PurOtherPromo add up to exactly 1 for every household. They are perfectly
-    redundant: you can only use two of the three. Say why in your write-up.
-  - Value is roughly TotalVol times AvgPrice, so these three describe the same thing in different clothes.
-    Do not pick all three. Think about which one is purchase behaviour and which is "basis of purchase".
-  - The spec's data table labels PrCat1 to PrCat4 and PropCat5 to PropCat15 as "basis of purchase", not purchase
-    behaviour. The brand share columns are replaced by MaxBrShare (Question 1). Decide and defend what to do with each group.
-  - Demographics (SEC, FEH, MT, SEX, AGE, EDU, HS, CHILD, CS, Affluence) are NOT purchase behaviour. They are for profiling later.
-
-WHAT I PUT BELOW: a PROVISIONAL list of six, only so the pipeline runs and Shrrii and Nandhini can start today.
-It is my guess, not a decision. At M2 (Sun 25 Oct) the team locks the final six. You then replace the vector
-`cluster_vars`. KEEP THE OBJECT NAME `cluster_vars`, because sections 7, 8 and 10 use it.
-
-EXTRAS FOR HD:
-  a. A table with EVERY column of bathsoap.csv, a kept/dropped column, and a one line reason. (46 rows, use gt.)
-  b. A correlation heatmap of your final six, and a comment on any pair above 0.7.
-  c. For each of the four ideas say what you considered and rejected, and why the winner is better.
-
-Work with: source("tools/load_upstream.R"); load_upstream("06_q2a_variables")
-Remove each TODO(Taabish) when done. tools/check_todos.R lists what is left.
--->
+The segmentation should group households by **how they buy bath soap**, so only variables that describe purchase behaviour can go in. The Key Problem names four ideas: **volume**, **frequency**, **susceptibility to discounts** and **brand loyalty**. Question 3 summarises "the six variables used in Question 2", so exactly six variables are chosen: one or two for each idea, with no two that say the same thing.
 
 ## The four ideas of purchase behaviour
 
-TODO(Taabish): one short paragraph. The Key Problem section names volume, frequency, susceptibility to discounts and brand loyalty. Say which variable you use for each and why.
+| Idea | Variable(s) chosen | Why this one |
+|---|---|---|
+| Volume | `TotalVol` | The amount of soap bought in the period. It is the plain measure of how much a household buys. |
+| Frequency | `NoTrans` | The number of shopping trips on which soap was bought, so it is how often a household buys. |
+| Susceptibility to discounts | `PurPromo6`, `PurOtherPromo` | The share of volume bought under promotion code 6 and under any other promotion. They are the two parts of discount buying that carry separate information. |
+| Brand loyalty | `MaxBrShare`, `NoBrands` | The brief names three loyalty perspectives: the number of brands bought, how often a household switches brand, and the share of spending on one brand. `NoBrands` is the first and `MaxBrShare` (built in @sec-q1b) is the third. Together they separate loyal households from those who only look disloyal. The switching perspective is discussed below. |
 
 ## Selected variables
 
 ```{r}
 #| label: select-variables
 
-# PROVISIONAL (Erwyna's guess so the pipeline runs): replace at M2 with the team's final six.
-# TODO(Taabish): replace this vector with the final six and comment why each is in.
-cluster_vars <- c("TotalVol",       # volume
-                  "NoTrans",        # frequency
-                  "PurPromo6",      # discount: promotion code 6
-                  "PurOtherPromo",  # discount: other promotions (PurNoPromo is the leftover, so left out)
-                  "NoBrands",       # loyalty: how many brands
-                  "MaxBrShare")     # loyalty: concentration on one brand (from Question 1)
+# The six variables used for clustering (Question 2) and PCA (Question 3).
+# The object name cluster_vars is used by sections 7, 8 and 10, so it must not change.
+cluster_vars <- c("TotalVol",       # volume: total amount of soap bought
+                  "NoTrans",        # frequency: number of purchase trips
+                  "PurPromo6",      # discounts: share of volume bought under promotion code 6
+                  "PurOtherPromo",  # discounts: share bought under other promotions (PurNoPromo is the leftover)
+                  "NoBrands",       # loyalty: how many brands are bought
+                  "MaxBrShare")     # loyalty: concentration on one named brand (Question 1)
+
+# Quick look at the six in their original units
+soap |>
+  select(all_of(cluster_vars)) |>
+  summarise(across(everything(), list(mean = mean, sd = sd, min = min, max = max))) |>
+  pivot_longer(everything(), names_to = c("variable", ".value"), names_sep = "_") |>
+  gt() |>
+  fmt_number(columns = c(mean, sd, min, max), decimals = 2) |>
+  cols_label(variable = "Variable", mean = "Mean", sd = "SD", min = "Minimum", max = "Maximum") |>
+  tab_header(title = "The six clustering variables in original units")
 ```
+
+The six cover all four ideas. Volume and frequency have one variable each. Discounts and loyalty have two each, because in each case the two variables measure different things (the evidence is in @tbl-q2a-correlation-pairs and @fig-q2a-correlation).
+
+## Variables that are exact copies of each other
+
+Several columns are calculated from other columns, so they add nothing new and would count the same behaviour twice in a distance. The chunk below tests each suspected relationship on the data instead of assuming it.
+
+```{r}
+#| label: tbl-q2a-redundancy
+#| tbl-cap: "Columns that are exact arithmetic of other columns."
+
+# Each row of this table is one suspected relationship, written as a function of the data
+redundancy_checks <- tribble(
+  ~relationship,                                  ~expected, ~check,
+  "PurNoPromo + PurPromo6 + PurOtherPromo",        1,        \(d) d$PurNoPromo + d$PurPromo6 + d$PurOtherPromo,
+  "PrCat1 + PrCat2 + PrCat3 + PrCat4",             1,        \(d) d$PrCat1 + d$PrCat2 + d$PrCat3 + d$PrCat4,
+  "PropCat5 + ... + PropCat15",                    1,        \(d) rowSums(d[paste0("PropCat", 5:15)]),
+  "Value / (TotalVol x AvgPrice / 100)",           1,        \(d) d$Value / (d$TotalVol * d$AvgPrice / 100),
+  "VolPerTrans / (TotalVol / NoTrans)",            1,        \(d) d$VolPerTrans / (d$TotalVol / d$NoTrans),
+  "TransPerRun / (NoTrans / BrandRuns)",           1,        \(d) d$TransPerRun / (d$NoTrans / d$BrandRuns)
+)
+
+# Run every check on the 600 households and summarise how far from the expected value it strays
+redundancy_checks |>
+  mutate(result = map(check, \(f) f(soap)),
+         smallest = map_dbl(result, min),
+         largest  = map_dbl(result, max)) |>
+  select(relationship, expected, smallest, largest) |>
+  gt() |>
+  fmt_number(columns = c(smallest, largest), decimals = 4) |>
+  cols_label(relationship = "Relationship", expected = "Expected",
+             smallest = "Smallest result", largest = "Largest result")
+```
+
+In every row the smallest and largest results sit on the expected value, to rounding error, for all `r nrow(soap)` households. This leads to four decisions:
+
+- **The three promotion shares add up to 1**, so any one is fixed by the other two. Only two can be used, because all three would make the variables perfectly collinear (one is a copy of the other two combined). `PurNoPromo` is the one dropped, since it is the leftover.
+- **`Value` is `TotalVol` times `AvgPrice`** (divided by 100), so `Value`, `TotalVol` and `AvgPrice` describe one thing in three forms. Only `TotalVol` is kept, because volume is the behaviour and `AvgPrice` and `Value` mix in the price of the brands chosen.
+- **`VolPerTrans` is `TotalVol` divided by `NoTrans`**, so it is built from two variables that are already in the six.
+- **`TransPerRun` is `NoTrans` divided by `BrandRuns`**, so it is a ratio of a kept variable and another that is dropped below.
 
 ## Why the others are excluded
 
 ```{r}
 #| label: variable-table
-#| eval: false
 
-# TODO(Taabish): build the kept/dropped table for all 46 columns, with a reason for each. Use gt().
-# TODO(Taabish): change eval: false to eval: true once the table exists.
+# One row per column. The reason is written once per column (shared wording for groups).
+demo_reason  <- "Describes who the household is, not how it buys. Held back to profile the groups in Question 2(e)."
+brand_reason <- "The brief lists the brand shares as purchase behaviour, but each one measures which brand was bought, not how loyal the household is (Question 1 Part A), and the nine shares sum to 1. Replaced by MaxBrShare."
+prcat_reason <- "Basis of purchase in the spec (a price category), not purchase behaviour. The four shares sum to 1, so they are redundant with each other."
+prop_reason  <- "Basis of purchase in the spec (a selling proposition), not purchase behaviour. The eleven shares sum to 1, so they are redundant with each other."
+
+# Helper: correlation of two columns, as text, so no number in a reason is typed by hand
+rr <- \(a, b) sprintf("%.2f", cor(soap[[a]], soap[[b]]))
+
+variable_table <- bind_rows(
+  tibble(variable = "MemberID", group = "Identifier", decision = "Dropped",
+         reason = "A label for the household. It carries no behaviour."),
+  tibble(variable = demo_cols, group = "Demographic", decision = "Dropped", reason = demo_reason),
+  tribble(
+    ~variable,       ~group,        ~decision, ~reason,
+    "NoBrands",      "Loyalty",     "Kept",    "Breadth of brands bought. Read with MaxBrShare it tells loyal buyers from those who only look disloyal (Question 1 item 7).",
+    "BrandRuns",     "Loyalty",     "Dropped", str_c("Counts runs of consecutive purchases of one brand, the switching perspective of loyalty named in the brief. Left out because it is strongly correlated with NoTrans (", rr("BrandRuns", "NoTrans"), ") and NoBrands (", rr("BrandRuns", "NoBrands"), "), so it would count frequency and breadth a second time."),
+    "TotalVol",      "Volume",      "Kept",    "Total volume bought. The direct measure of how much a household buys.",
+    "NoTrans",       "Frequency",   "Kept",    "Number of purchase trips. The direct measure of how often a household buys.",
+    "Value",         "Volume",      "Dropped", str_c("Equals TotalVol times AvgPrice / 100, so it repeats volume and adds the price of the brand chosen (correlation ", rr("Value", "TotalVol"), " with TotalVol)."),
+    "TransPerRun",   "Loyalty",     "Dropped", str_c("Equals NoTrans / BrandRuns, the average length of a brand run, so it is the other switching measure. Left out because it is a ratio of two variables already discussed and it overlaps with MaxBrShare (correlation ", rr("TransPerRun", "MaxBrShare"), ")."),
+    "VolPerTrans",   "Volume",      "Dropped", str_c("Equals TotalVol / NoTrans, built from two variables already kept (correlation ", rr("VolPerTrans", "TotalVol"), " with TotalVol)."),
+    "AvgPrice",      "Price",       "Dropped", "The brief lists it as a purchase summary, but it measures the price level rather than one of the four ideas (volume, frequency, discounts, loyalty). It depends on the brand and pack chosen and it is the price part of Value.",
+    "PurNoPromo",    "Discounts",   "Dropped", str_c("The leftover of the two promotion shares (all three sum to 1), correlation ", rr("PurNoPromo", "PurPromo6"), " with PurPromo6. Using it too would add a redundant column."),
+    "PurPromo6",     "Discounts",   "Kept",    "Share of volume under promotion code 6. Households differ widely on it, and it is almost unrelated to PurOtherPromo.",
+    "PurOtherPromo", "Discounts",   "Kept",    "Share of volume under other promotions. A separate kind of discount buying from PurPromo6."
+  ),
+  tibble(variable = brand_cols, group = "Brand share", decision = "Dropped", reason = brand_reason),
+  tribble(
+    ~variable,       ~group,        ~decision, ~reason,
+    "BrOthers",      "Brand share", "Dropped", "Pools many small brands, so it cannot identify loyalty to any one brand (Question 1 Part B). Included in the nine shares that MaxBrShare replaces.",
+    "MaxBrShare",    "Loyalty",     "Kept",    "The largest share of volume in one named brand, built in Question 1. It measures concentration and ignores which brand was bought."
+  ),
+  tibble(variable = str_c("PrCat", 1:4), group = "Price category", decision = "Dropped", reason = prcat_reason),
+  tibble(variable = str_c("PropCat", 5:15), group = "Proposition", decision = "Dropped", reason = prop_reason)
+)
+
+# Safety checks: every column of the data appears once, and the kept rows are exactly cluster_vars
+stopifnot(setequal(variable_table$variable, names(soap)),
+          !anyDuplicated(variable_table$variable),
+          setequal(variable_table$variable[variable_table$decision == "Kept"], cluster_vars))
+
+# Show the table in the order of the data file
+variable_table |>
+  mutate(order = match(variable, names(soap))) |>
+  arrange(order) |>
+  select(variable, group, decision, reason) |>
+  gt() |>
+  cols_label(variable = "Variable", group = "Group", decision = "Decision", reason = "Reason") |>
+  tab_style(style = cell_text(weight = "bold"), locations = cells_body(columns = decision, rows = decision == "Kept")) |>
+  tab_header(title = "Every column in the data: kept or dropped, and why")
 ```
 
-TODO(Taabish): write the justification in prose under the table.
+The table covers all `r nrow(variable_table)` columns (the 46 in `bathsoap.csv` plus `MaxBrShare`): `r sum(variable_table$decision == "Kept")` are kept and `r sum(variable_table$decision == "Dropped")` are dropped. The dropped columns fall into four kinds:
+
+1. **Demographics** (`r length(demo_cols)` columns). They describe the household, not its buying, so putting them in would group households by who they are. They are kept for profiling the segments in @sec-profile, where they tell a client who each segment is.
+2. **Brand shares** (nine columns). They measure which brand was bought, which @sec-q1a showed would split fully loyal households by brand name. `MaxBrShare` replaces them.
+3. **Basis of purchase** (`PrCat1` to `PrCat4` and `PropCat5` to `PropCat15`, 15 columns). The spec labels these as the basis of purchase and not as purchase behaviour. Each group also sums to 1.
+4. **Columns that repeat the six** (`Value`, `AvgPrice`, `VolPerTrans`, `TransPerRun`, `BrandRuns`, `PurNoPromo`). They are either arithmetic on other columns or closely related to a kept variable, so they repeat information (see @tbl-q2a-redundancy and @tbl-q2a-dropped-correlation).
+
+## What was considered for each idea
+
+| Idea | Winner | Considered and rejected | Why the winner is better |
+|---|---|---|---|
+| Volume | `TotalVol` | `Value`, `VolPerTrans` | `Value` is volume multiplied by price, so it mixes behaviour with the cost of the brand. `VolPerTrans` is built from `TotalVol` and `NoTrans`. |
+| Frequency | `NoTrans` | `BrandRuns` | `NoTrans` counts every purchase transaction. `BrandRuns` counts runs of the same brand, so it tracks switching more than how often a household buys. |
+| Discounts | `PurPromo6` and `PurOtherPromo` | `PurNoPromo`, one combined promotion share | `PurNoPromo` is redundant. A single combined share (1 minus `PurNoPromo`) would hide that the two promotion types are almost uncorrelated. |
+| Loyalty | `MaxBrShare` and `NoBrands` | The nine brand shares, `BrOthers`, `BrandRuns`, `TransPerRun` | The nine shares measure brand identity. `MaxBrShare` measures concentration, and `NoBrands` covers the households that buy one small brand and have `MaxBrShare` of 0. `BrandRuns` and `TransPerRun` measure switching, but they overlap with `NoTrans`, `NoBrands` and `MaxBrShare` (see @tbl-q2a-dropped-correlation), so they would count the same behaviour twice. |
+
+## Checking the six for multicollinearity
+
+Multicollinearity means two variables move together so closely that they carry almost the same information. If it were present, one idea would be counted twice in every distance. The correlation heatmap checks the six before they go on.
+
+```{r}
+#| label: fig-q2a-correlation
+#| fig-cap: "Correlation between the six chosen variables, in original units."
+#| fig-width: 7
+#| fig-height: 5
+
+# Correlation matrix of the six, reshaped into one row per pair of variables
+cor_pairs <- soap |>
+  select(all_of(cluster_vars)) |>
+  cor() |>
+  as_tibble(rownames = "var1") |>
+  pivot_longer(-var1, names_to = "var2", values_to = "r") |>
+  mutate(across(c(var1, var2), \(x) factor(x, levels = cluster_vars)))
+
+ggplot(cor_pairs, aes(var1, var2, fill = r)) +
+  geom_tile(colour = "white") +
+  geom_text(aes(label = sprintf("%.2f", r), colour = abs(r) > 0.6), size = 3.6, show.legend = FALSE) +
+  scale_colour_manual(values = c("TRUE" = "white", "FALSE" = "black")) +
+  scale_fill_gradient2(low = pal[4], mid = "white", high = pal[1], limits = c(-1, 1), name = "Correlation") +
+  scale_y_discrete(limits = rev(cluster_vars)) +
+  labs(title = "No pair of the six variables is strongly correlated", x = NULL, y = NULL) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+```{r}
+#| label: tbl-q2a-correlation-pairs
+#| tbl-cap: "The three strongest correlations among the six chosen variables."
+
+# Each pair once, ranked by the strength of the correlation (sign ignored)
+strongest_pairs <- cor_pairs |>
+  filter(as.integer(var1) < as.integer(var2)) |>
+  arrange(desc(abs(r))) |>
+  slice_head(n = 3)
+
+strongest_pairs |>
+  gt() |>
+  fmt_number(columns = r, decimals = 2) |>
+  cols_label(var1 = "Variable 1", var2 = "Variable 2", r = "Correlation")
+```
+
+The strongest correlation is `r sprintf("%.2f", strongest_pairs$r[1])` between `r strongest_pairs$var1[1]` and `r strongest_pairs$var2[1]`, and **`r sum(abs(cor_pairs$r[as.integer(cor_pairs$var1) < as.integer(cor_pairs$var2)]) > 0.7)` pairs are above 0.7**. Households that shop more often tend to try more brands, which is expected and not close to a duplicate. The two promotion shares have a correlation of only `r sprintf("%.2f", cor_pairs$r[cor_pairs$var1 == "PurPromo6" & cor_pairs$var2 == "PurOtherPromo"])`, so the two kinds of discount buying are different behaviours and both are worth keeping. `MaxBrShare` and `NoBrands` have a correlation of `r sprintf("%.2f", cor_pairs$r[cor_pairs$var1 == "NoBrands" & cor_pairs$var2 == "MaxBrShare"])`, so the two loyalty variables overlap only a little.
+
+```{r}
+#| label: tbl-q2a-dropped-correlation
+#| tbl-cap: "How strongly each dropped candidate is correlated with its closest chosen variable."
+
+# Candidates that were considered and dropped, against the six that were kept
+dropped_candidates <- c("Value", "VolPerTrans", "BrandRuns", "TransPerRun", "AvgPrice", "PurNoPromo")
+
+soap |>
+  select(all_of(dropped_candidates), all_of(cluster_vars)) |>
+  cor() |>
+  as_tibble(rownames = "candidate") |>
+  filter(candidate %in% dropped_candidates) |>
+  select(candidate, all_of(cluster_vars)) |>
+  pivot_longer(all_of(cluster_vars), names_to = "closest", values_to = "r") |>
+  slice_max(abs(r), n = 1, by = candidate) |>
+  arrange(desc(abs(r))) |>
+  gt() |>
+  fmt_number(columns = r, decimals = 2) |>
+  cols_label(candidate = "Dropped candidate", closest = "Closest chosen variable", r = "Correlation")
+```
+
+Most dropped candidates have a strong link to one of the six (`Value`, `BrandRuns`, `PurNoPromo`), or are exact arithmetic of other columns (`VolPerTrans` from two kept variables, `TransPerRun` from a kept variable and `BrandRuns`), so dropping them loses little. `AvgPrice` is the weakest case for dropping, since its correlation with the six is modest. It was dropped because the price paid per unit reflects the brand and pack size chosen rather than how the household buys, and the Key Problem names volume, frequency, discounts and loyalty and not price.
+
+## Limits of this choice
+
+- **The ideas are weighted unevenly.** Discounts and loyalty each have two variables and volume and frequency have one, so the segmentation gives loyalty and discounts more say in the distances. The data support this (each pair has a low correlation inside it), but a different team could weight the four ideas equally.
+- **The correlations are on the original units.** Several of the six are skewed, so the preparation step in @sec-prep transforms and standardises them before clustering.
+- **Switching between brands is not measured directly.** The brief names it as one of three loyalty perspectives. `BrandRuns` and `TransPerRun` measure it, and they were left out because of the overlap shown above. If the team prefers to include a switching variable, `TransPerRun` is the better candidate: its correlation with `NoTrans` is only `r sprintf("%.2f", cor(soap$TransPerRun, soap$NoTrans))`, whereas `BrandRuns` has `r sprintf("%.2f", cor(soap$BrandRuns, soap$NoTrans))`. It would have to replace one of the six, because Question 3 uses exactly six.
+- **`MaxBrShare` of 0** applies to `r sum(soap$MaxBrShare == 0)` households that buy only a brand outside the eight named. They are not disloyal, which is why `NoBrands` is in the six.
