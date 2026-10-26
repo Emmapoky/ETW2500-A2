@@ -1,56 +1,549 @@
 # Question 2(e): Profiling the Groups {#sec-profile}
 
 <!--
-INSTRUCTIONS FOR NANDHINI (Q2e profiling, then Q3 PCA in section 10). Delete this whole comment block when final.
-
-Hi Nandhini. This section is yours. Only edit THIS file (sections/09_q2e_profiling.qmd).
-
-THE TASK (spec page 5, Q2e): profile the groups using THREE demographic variables of your choice, and explain why you chose them.
-
-WHAT YOU START FROM:
-  - `soap_clean`: all 600 households with demographics. Zeros and CHILD category 5 are already turned into NA by my
-    section 07 (please read that section so you can explain why, the marker may ask).
-  - `soap_clusters`: from Shrrii's section 08 (columns MemberID, cluster). It does not exist yet, so for now run:
-        source("tools/load_upstream.R"); load_upstream("09_q2e_profiling", dummy_clusters = TRUE)
-    That creates a RANDOM stand-in in your console only, so you can build and test the code today. When Shrrii's real
-    clusters are merged the same code just works on real results. Never trust any number from the dummy.
-
-THE DEMOGRAPHICS (codes from the spec): SEC 1 high to 4 low; FEH eating habits (1 vegetarian, 2 vegetarian but eats
-eggs, 3 non-vegetarian); MT mother tongue (code only, no labels given); SEX 1 male, 2 female; AGE 1 young to 4 old;
-EDU 1 minimum to 9 maximum; HS household size; CHILD presence of children (categories, no labels given);
-CS TV availability (1 available, 2 unavailable); Affluence weighted value of durables.
-Choose three that matter to a CLIENT: ask "if this group differs on it, what would the manufacturer or agency do?"
-(for example SEC for pricing and pack size, AGE for the media channel, HS for pack size, Affluence for premium products).
-
-NA HANDLING: demographic NAs are kept. For each variable you profile, say how many households have it missing and
-what you did (usually: summarise over the households that have a value, and say the n).
-
-REQUIRED:
-  1. Three demographics, with a reason for each choice.
-  2. For each: how it differs across groups (proportion bars for categorical; mean/median plus a boxplot for numeric).
-  3. A sentence under each output saying what the difference means for the business.
-
-EXTRAS FOR HD:
-  a. A statistical test for each (chi-squared for categorical, ANOVA or Kruskal-Wallis for numeric) so we say "different"
-     with evidence. Report the p-value in a sentence and say whether the difference is practically meaningful.
-  b. Say why you did NOT choose the other demographics.
-  c. A summary table, one row per group, with the three profile variables.
-
-Remove each TODO(Nandhini) when done. tools/check_todos.R lists what is left.
+DRAFT NOTE (Nandhini). The code chunks that need clusters only run when `soap_clusters` exists
+(`eval: !expr exists("soap_clusters")`), so the report still renders before section 08 is finished.
+The interpretation paragraphs are written by R from the results (results: asis chunks), so they update
+by themselves when the real clusters arrive. When Shrrii's real clusters are merged: change those chunks
+to `eval: true`, read every paragraph against the real charts, then delete this note and every TODO(Nandhini).
+Work with: source("tools/load_upstream.R"); load_upstream("09_q2e_profiling", dummy_clusters = TRUE)
 -->
+
+The segments in @sec-cluster were built from purchase behaviour only. Demographics were deliberately left out of the clustering, so that the groups describe *how* households buy rather than *who* they are. This section brings the demographics back in to answer the client's next question: who are the households in each segment, and how can they be reached?
 
 ## Which three demographics, and why
 
-TODO(Nandhini): name the three variables and the business reason for each.
+Each variable was chosen because a difference between segments on it leads to a different business action.
+
+```{r}
+#| label: profile-var-choice
+
+# The three demographics used to profile the segments
+profile_vars <- c("SEC", "HS", "AGE")
+
+# Missing values per profile variable (zeros were turned into NA in section 07)
+profile_missing <- soap_clean |>
+  summarise(across(all_of(profile_vars), \(x) sum(is.na(x)))) |>
+  pivot_longer(everything(), names_to = "variable", values_to = "n_missing")
+
+tibble(
+  variable = profile_vars,
+  type     = c("Ordinal, 1 high to 4 low", "Numeric, number of members", "Ordinal, 1 young to 4 old"),
+  action   = c("Price point and premium or economy range",
+               "Pack size and multi-packs",
+               "Media channel and message")
+) |>
+  left_join(profile_missing, by = "variable") |>
+  gt() |>
+  cols_label(variable = "Variable", type = "Type", action = "Business lever it informs",
+             n_missing = "Missing households") |>
+  tab_header(title = "The three profiling demographics")
+```
+
+- **SEC (socioeconomic class)** tells a manufacturer what price a segment can bear. If the loyal, heavy buyers are mostly high SEC, a premium range and loyalty rewards suit them; if the promotion-led buyers are mostly low SEC, price discounts are the right tool. SEC is also one of the strata the panel was sampled on, so all `r nrow(soap_clean) - profile_missing$n_missing[profile_missing$variable == "SEC"]` households have a value.
+- **HS (household size)** is the demographic most directly tied to how much soap a household uses. It tells the client which segments should be offered larger packs or multi-packs. `r profile_missing$n_missing[profile_missing$variable == "HS"]` households have no size recorded and are left out of the HS summaries only.
+- **AGE (age of the homemaker)** tells an advertising agency where and how to speak to each segment, for example television versus newer channels, and what message will land. Every household has a value.
+
+The three variables point to three *different* levers (price, pack, media), so together they give a client a fuller plan than three variables that all say the same thing.
+
+```{r}
+#| label: other-demographics
+
+# Facts used to explain why the other demographics were not chosen
+other_missing <- soap_clean |>
+  summarise(across(c(FEH, MT, SEX, EDU, CHILD, CS, Affluence), \(x) sum(is.na(x))))
+share_female  <- mean(soap_clean$SEX == 2, na.rm = TRUE)
+share_tv      <- mean(soap_clean$CS == 1, na.rm = TRUE)   # used later for the media advice
+# Spearman correlation, because SEC is ordinal
+sec_aff_cor   <- cor(soap_clean$SEC, soap_clean$Affluence, method = "spearman", use = "complete.obs")
+```
+
+**Why not the others.** `Affluence` is a strong candidate, but it overlaps with SEC (Spearman correlation `r round(sec_aff_cor, 2)`; SEC runs from 1 high to 4 low, so a negative value means wealthier households sit in the higher classes) and has `r other_missing$Affluence` missing households, so it would repeat SEC's message with less data. `MT` (native language) and `CHILD` are codes with no labels in the data guide, so a difference could not be turned into an action. `SEX` barely varies: `r percent(share_female, accuracy = 1)` of homemakers with a recorded value are female. `EDU`, `FEH` and `CS` are missing for `r other_missing$EDU`, `r other_missing$FEH` and `r other_missing$CS` households respectively and are less directly linked to a bath soap decision than the three chosen. @sec-profile-check tests this choice against the data.
+
+**Missing values.** No household is dropped from the segmentation. For HS, each summary and test uses the households that have a value, and the number used is shown.
 
 ## Profile by group
 
 ```{r}
-#| label: profile-groups
-#| eval: false
+#| label: profile-data
+#| eval: !expr exists("soap_clusters")
 
-# TODO(Nandhini): join soap_clusters to soap_clean by MemberID, then summarise / plot the three demographics by cluster.
-# TODO(Nandhini): change eval: false to eval: true once your code is in.
+# Attach the three demographics (and TotalVol, to link size to volume) to each household's segment
+profile_df <- soap_clusters |>
+  select(MemberID, cluster) |>
+  left_join(soap_clean |> select(MemberID, all_of(profile_vars), TotalVol), by = "MemberID") |>
+  mutate(
+    # Give the ordinal codes readable labels for the charts
+    SEC = factor(SEC, levels = 1:4, labels = c("1 High", "2", "3", "4 Low")),
+    AGE = factor(AGE, levels = 1:4, labels = c("1 Young", "2", "3", "4 Old"))
+  )
+
+# One chart function for both categorical variables, so they look the same
+plot_props <- function(data, var, title) {
+  data |>
+    filter(!is.na({{ var }})) |>
+    count(cluster, {{ var }}) |>
+    group_by(cluster) |>
+    mutate(prop = n / sum(n)) |>                 # share within each segment
+    ungroup() |>
+    ggplot(aes(cluster, prop, fill = {{ var }})) +
+    geom_col(colour = "white") +
+    scale_y_continuous(labels = percent) +
+    scale_fill_manual(values = pal) +
+    labs(title = title, x = "Segment", y = "Share of households in the segment", fill = NULL)
+}
+
+# Small helpers that let R write the interpretation, so no number is typed by hand
+seg_label <- function(k) {
+  # Use Shrrii's segment name if section 08 provides one
+  if ("segment" %in% names(soap_clusters)) {
+    nm <- soap_clusters |> filter(cluster == k) |> pull(segment) |> first()
+    as.character(str_glue("Segment {k} ({nm})"))
+  } else {
+    as.character(str_glue("Segment {k}"))
+  }
+}
+pct   <- \(x) percent(x, accuracy = 1)
+fmt_p <- \(p) if_else(p < 0.001, "p < 0.001", paste("p =", sprintf("%.3f", p)))
 ```
 
-TODO(Nandhini): the interpretation, one short paragraph per variable.
+```{r}
+#| label: profile-tests-compute
+#| eval: !expr exists("soap_clusters")
+
+# Cramer's V: chi-squared rescaled to run from 0 (no association) to 1
+cramers_v <- function(tab, stat) sqrt(stat / (sum(tab) * (min(dim(tab)) - 1)))
+
+# Chi-squared test plus Cramer's V for one categorical variable
+chisq_row <- function(data, var) {
+  d   <- data |> filter(!is.na(.data[[var]]))
+  tab <- table(d$cluster, d[[var]])
+  res <- chisq.test(tab, simulate.p.value = TRUE, B = 5000)   # simulated p-value, see below
+  tibble(variable = var, test = "Chi-squared", n = sum(tab), p_value = res$p.value,
+         effect = cramers_v(tab, unname(res$statistic)), effect_measure = "Cramér's V")
+}
+
+# Label an effect size in words. The usual cut-offs differ by measure:
+# Cramer's V 0.1 / 0.3 / 0.5, epsilon squared 0.01 / 0.08 / 0.26.
+effect_word <- function(effect, measure) {
+  cuts <- if (measure == "Cramér's V") c(0.1, 0.3, 0.5) else c(0.01, 0.08, 0.26)
+  case_when(effect < cuts[1] ~ "negligible", effect < cuts[2] ~ "small",
+            effect < cuts[3] ~ "moderate", TRUE ~ "large")
+}
+
+hs_df <- profile_df |> filter(!is.na(HS))       # only households with a recorded size
+
+set.seed(55789)   # the simulated p-values are random, so fix them
+kw_hs <- kruskal.test(HS ~ cluster, data = hs_df)
+
+profile_tests <- bind_rows(
+  chisq_row(profile_df, "SEC"),
+  tibble(variable = "HS", test = "Kruskal-Wallis", n = nrow(hs_df),
+         p_value = kw_hs$p.value,
+         effect = unname(kw_hs$statistic) / (nrow(hs_df) - 1),    # epsilon squared
+         effect_measure = "Epsilon squared"),
+  chisq_row(profile_df, "AGE")
+) |>
+  mutate(size       = map2_chr(effect, effect_measure, effect_word),
+         actionable = p_value < 0.05 & size != "negligible",
+         verdict    = case_when(
+           actionable      ~ str_glue("statistically significant and {size} in size, so it is a usable guide for targeting"),
+           p_value < 0.05  ~ "statistically significant but negligible in size, so it should not drive decisions on its own",
+           TRUE            ~ "not statistically significant, so the pattern in the chart may be chance and should not be used for targeting"
+         ))
+
+# One sentence on the test result, reused under each chart
+test_sentence <- function(var) {
+  r <- profile_tests |> filter(variable == var)
+  test_name <- if_else(r$test == "Chi-squared", "chi-squared", r$test)   # lower case mid-sentence
+  str_glue("The {test_name} test ({fmt_p(r$p_value)}, {r$effect_measure} = {round(r$effect, 3)}) shows this difference is {r$verdict}.")
+}
+```
+
+### Socioeconomic class
+
+```{r}
+#| label: profile-sec
+#| eval: !expr exists("soap_clusters")
+
+plot_props(profile_df, SEC, "Socioeconomic class within each segment")
+```
+
+TODO(Nandhini): once real clusters are in, check this paragraph against the chart and add the purchase behaviour of each segment from section 08.
+
+```{r}
+#| label: profile-sec-text
+#| eval: !expr exists("soap_clusters")
+#| echo: false
+#| results: asis
+
+sec_tab  <- profile_df |>
+  group_by(cluster) |>
+  summarise(high = mean(as.integer(SEC) <= 2), low = mean(as.integer(SEC) == 4))
+sec_all  <- profile_df |>
+  summarise(high = mean(as.integer(SEC) <= 2), low = mean(as.integer(SEC) == 4))
+top_high <- sec_tab |> slice_max(high, n = 1, with_ties = FALSE)
+top_low  <- sec_tab |> slice_max(low,  n = 1, with_ties = FALSE)
+
+cat("\n\n", str_glue(
+  "{seg_label(top_high$cluster)} leans most towards the higher classes: {pct(top_high$high)} of its ",
+  "households are SEC 1 or 2, against {pct(sec_all$high)} across all households. ",
+  "{seg_label(top_low$cluster)} has the largest share of the lowest class, with {pct(top_low$low)} in ",
+  "SEC 4 against {pct(sec_all$low)} overall. ",
+  "For a manufacturer this shows where each price tier belongs. {seg_label(top_high$cluster)} is the natural ",
+  "home for a premium variant and the higher price categories, and because these households can afford ",
+  "full price, loyalty rewards protect margin better than discounts. {seg_label(top_low$cluster)} is more ",
+  "likely to be price sensitive, so economy packs, the lower price categories and price-off promotions suit it. ",
+  "{test_sentence('SEC')}"
+), "\n\n", sep = "")
+```
+
+### Household size
+
+```{r}
+#| label: profile-hs
+#| eval: !expr exists("soap_clusters")
+
+hs_df |>
+  ggplot(aes(cluster, HS, fill = cluster)) +
+  geom_boxplot(show.legend = FALSE) +
+  stat_summary(fun = mean, geom = "point", shape = 4, size = 3) +   # the cross marks the mean
+  scale_fill_manual(values = pal) +
+  labs(title = "Household size within each segment",
+       subtitle = paste0("Households with a recorded size: n = ", nrow(hs_df)),
+       x = "Segment", y = "Members in the household")
+```
+
+TODO(Nandhini): once real clusters are in, check this paragraph against the boxplot and the volume figures in section 08.
+
+```{r}
+#| label: profile-hs-text
+#| eval: !expr exists("soap_clusters")
+#| echo: false
+#| results: asis
+
+hs_tab  <- hs_df |>
+  group_by(cluster) |>
+  summarise(median_hs = median(HS), mean_hs = mean(HS))
+vol_tab <- profile_df |>
+  group_by(cluster) |>
+  summarise(mean_vol = mean(TotalVol))            # all households, volume is never missing
+top_hs  <- hs_tab  |> slice_max(mean_hs,  n = 1, with_ties = FALSE)
+top_vol <- vol_tab |> slice_max(mean_vol, n = 1, with_ties = FALSE)
+
+link <- if (top_hs$cluster == top_vol$cluster) {
+  str_glue("It is also the segment that buys the most soap by volume, which is what one would expect: more ",
+           "people use more soap. For the client this makes it the segment for family packs and multi-packs, ",
+           "where a lower price per unit rewards the large volume these households already buy.")
+} else {
+  str_glue("However, the segment that buys the most by volume is {seg_label(top_vol$cluster)}, not the one with ",
+           "the largest households, so volume in these data is driven by more than household size (for example ",
+           "by buying in bulk or by heavier use per person). Large pack offers should therefore follow the volume ",
+           "segment, with household size as a secondary guide.")
+}
+
+cat("\n\n", str_glue(
+  "The median household size ranges from {min(hs_tab$median_hs)} to {max(hs_tab$median_hs)} members across ",
+  "the segments. {seg_label(top_hs$cluster)} has the largest households on average ",
+  "({round(top_hs$mean_hs, 1)} members, against {round(mean(hs_df$HS), 1)} overall). {link} ",
+  "{test_sentence('HS')}"
+), "\n\n", sep = "")
+```
+
+### Age of the homemaker
+
+```{r}
+#| label: profile-age
+#| eval: !expr exists("soap_clusters")
+
+plot_props(profile_df, AGE, "Age of the homemaker within each segment")
+```
+
+TODO(Nandhini): once real clusters are in, check this paragraph against the chart.
+
+```{r}
+#| label: profile-age-text
+#| eval: !expr exists("soap_clusters")
+#| echo: false
+#| results: asis
+
+age_tab   <- profile_df |>
+  group_by(cluster) |>
+  summarise(old = mean(AGE == "4 Old"), young = mean(as.integer(AGE) <= 2))
+age_all   <- profile_df |>
+  summarise(old = mean(AGE == "4 Old"), young = mean(as.integer(AGE) <= 2))
+top_old   <- age_tab |> slice_max(old,   n = 1, with_ties = FALSE)
+top_young <- age_tab |> slice_max(young, n = 1, with_ties = FALSE)
+
+cat("\n\n", str_glue(
+  "{seg_label(top_old$cluster)} has the oldest homemakers: {pct(top_old$old)} are in the oldest age group, ",
+  "against {pct(age_all$old)} across all households. {seg_label(top_young$cluster)} has the largest share of ",
+  "younger homemakers (AGE 1 or 2), at {pct(top_young$young)} against {pct(age_all$young)} overall. ",
+  "For an advertising agency this changes the media plan. The older segment is best reached through television, ",
+  "which {pct(share_tv)} of households with a recorded value have, and through in-store displays, while for the ",
+  "younger segment digital and social media deserve a larger share of the budget. ",
+  "{test_sentence('AGE')}"
+), "\n\n", sep = "")
+```
+
+## Are the differences real?
+
+A chart can show a difference that is only noise. Each variable is therefore tested. SEC and AGE are categorical, so a chi-squared test of independence checks whether the mix of classes differs between segments. Some AGE cells are small (few households have the youngest code), so the p-value is simulated rather than taken from the chi-squared table, which stays valid when expected counts are below 5. HS is a count with a long right tail, so the Kruskal-Wallis test, which compares the segments on ranks rather than means, is used instead of ANOVA.
+
+A small p-value only says a difference exists. With 600 households even a tiny difference can be "significant", so an effect size is also reported: Cramér's V for the categorical variables and epsilon squared for HS. Both run from 0 (no association) to 1. The usual guide is that Cramér's V below 0.1 is negligible, from 0.1 small, from 0.3 moderate and from 0.5 large; for epsilon squared the same steps are 0.01, 0.08 and 0.26.
+
+```{r}
+#| label: profile-tests
+#| eval: !expr exists("soap_clusters")
+
+profile_tests |>
+  select(variable, test, n, p_value, effect, effect_measure, size) |>
+  gt() |>
+  fmt_number(effect, decimals = 3) |>
+  fmt_number(p_value, decimals = 4) |>
+  cols_label(variable = "Variable", test = "Test", n = "Households used",
+             p_value = "p-value", effect = "Effect size", effect_measure = "Measure",
+             size = "Size") |>
+  tab_header(title = "Do the segments differ on each demographic?")
+```
+
+TODO(Nandhini): once real clusters are in, check these sentences against the table.
+
+```{r}
+#| label: profile-tests-text
+#| eval: !expr exists("soap_clusters")
+#| echo: false
+#| results: asis
+
+n_act <- sum(profile_tests$actionable)
+
+cat("\n\n", paste0("- ", str_glue_data(profile_tests,
+  "**{variable}**: {fmt_p(p_value)}; {effect_measure} = {round(effect, 3)} ({size}). The difference is {verdict}."),
+  collapse = "\n"), "\n\n", sep = "")
+
+cat(str_glue(
+  "{n_act} of the three demographics separate the segments clearly enough to act on. ",
+  if (n_act == 0) {
+    "The segments therefore look alike in who they are, even though they differ in how they buy. That is a finding in itself: a client cannot find these segments from demographics, and should target them through purchase data such as loyalty card records instead."
+  } else {
+    "Those variables are the ones a client can use to find each segment in the wider market, where purchase data are not available."
+  }
+), "\n\n", sep = "")
+```
+
+## Where do the differences come from?
+
+A significant test says the segments differ *somewhere*, not where. Two follow-up checks locate the difference.
+
+For SEC and AGE, the **standardised residual** of each cell compares the number of households in that segment and class with the number expected if the segments had the same mix. A value beyond ±2 marks a cell with clearly more (positive) or fewer (negative) households than expected.
+
+```{r}
+#| label: profile-residuals
+#| eval: !expr exists("soap_clusters")
+#| fig-width: 10
+
+# Standardised residuals of the segment by class table, in long form for plotting
+resid_df <- function(data, var) {
+  d   <- data |> filter(!is.na(.data[[var]]))
+  tab <- table(cluster = d$cluster, level = d[[var]])
+  # only the residuals are used here, so the small-count warning about the p-value does not apply
+  res <- suppressWarnings(chisq.test(tab))
+  as.data.frame.table(res$stdres, responseName = "resid") |> mutate(variable = var)
+}
+
+plot_resid <- function(rd, title) {
+  ggplot(rd, aes(level, cluster, fill = resid)) +
+    geom_tile(colour = "white") +
+    geom_text(aes(label = round(resid, 1), colour = abs(resid) > 2), show.legend = FALSE) +
+    scale_colour_manual(values = c(`TRUE` = "white", `FALSE` = "black")) +   # readable on dark tiles
+    scale_fill_gradient2(low = pal[4], mid = "white", high = pal[1], midpoint = 0) +
+    labs(title = title, x = NULL, y = "Segment", fill = "Residual")
+}
+
+sec_resid <- resid_df(profile_df, "SEC")
+age_resid <- resid_df(profile_df, "AGE")
+
+plot_resid(sec_resid, "Socioeconomic class") +
+  plot_resid(age_resid, "Age of the homemaker") +
+  plot_annotation(caption = "Purple: more households than expected. Green: fewer. Beyond ±2 is a clear difference.")
+```
+
+For HS, **pairwise Wilcoxon tests** compare every pair of segments. The Holm adjustment corrects the p-values for making several comparisons at once, so the chance of a false "difference" stays at 5% overall.
+
+```{r}
+#| label: profile-hs-pairs
+#| eval: !expr exists("soap_clusters")
+
+hs_pairs <- pairwise.wilcox.test(hs_df$HS, hs_df$cluster,
+                                 p.adjust.method = "holm", exact = FALSE) |>
+  tidy()
+
+hs_pairs |>
+  gt() |>
+  fmt_number(p.value, decimals = 4) |>
+  cols_label(group1 = "Segment", group2 = "Compared with", p.value = "Holm adjusted p-value") |>
+  tab_header(title = "Household size: which pairs of segments differ?")
+```
+
+TODO(Nandhini): once real clusters are in, check this paragraph against the heatmaps and the table.
+
+```{r}
+#| label: profile-where-text
+#| eval: !expr exists("soap_clusters")
+#| echo: false
+#| results: asis
+
+strong_cells <- bind_rows(sec_resid, age_resid) |>
+  filter(abs(resid) > 2) |>
+  arrange(desc(abs(resid)))
+sig_pairs <- hs_pairs |> filter(p.value < 0.05)
+
+cells_text <- if (nrow(strong_cells) == 0) {
+  "No cell in either heatmap has a standardised residual beyond ±2, so no single segment and class combination stands out: any difference in SEC or AGE is spread thinly across the table."
+} else {
+  str_glue("The cells that drive the SEC and AGE results are: ",
+           str_flatten_comma(str_glue_data(strong_cells,
+             "{map_chr(cluster, seg_label)} has {if_else(resid > 0, 'more', 'fewer')} {variable} {level} households than expected ({sprintf('%+.1f', resid)})"),
+             ", and "), ".")
+}
+pairs_text <- if (nrow(sig_pairs) == 0) {
+  "For household size, no pair of segments differs once the p-values are adjusted for multiple comparisons."
+} else {
+  str_glue("For household size, the pairs that differ after adjustment are ",
+           str_flatten_comma(str_glue_data(sig_pairs, "segments {group2} and {group1} ({fmt_p(p.value)})"), ", and "), ".")
+}
+
+cat("\n\n", cells_text, " ", pairs_text,
+    " These are the comparisons a client should rely on when deciding which segment to approach with which offer.\n\n", sep = "")
+```
+
+## Did we miss a better demographic? {#sec-profile-check}
+
+The three variables were chosen for business reasons. As a check, every demographic is measured on how strongly it separates the segments, using one common measure, Cramér's V. Numeric variables (HS, Affluence and EDU, which has nine sparse levels) are first cut into four equal-sized groups, and native-language codes held by fewer than 20 households are pooled, so that rare codes do not inflate the measure.
+
+```{r}
+#| label: profile-all-demographics
+#| eval: !expr exists("soap_clusters")
+
+all_demo_v <- map_dfr(demo_cols, \(v) {
+  d <- soap_clusters |>
+    select(MemberID, cluster) |>
+    left_join(soap_clean |> select(MemberID, value = all_of(v)), by = "MemberID") |>
+    filter(!is.na(value))
+  grp <- if (v %in% c("HS", "Affluence", "EDU")) {
+    factor(ntile(d$value, 4))                      # numeric: four equal-sized groups
+  } else {
+    fct_lump_min(factor(d$value), min = 20)         # categorical: pool rare codes
+  }
+  tab <- table(d$cluster, grp)
+  res <- suppressWarnings(chisq.test(tab))         # only the statistic is used
+  tibble(variable = v, n = nrow(d),
+         cramers_v = cramers_v(tab, unname(res$statistic)),
+         chosen = v %in% profile_vars)
+})
+
+all_demo_v |>
+  ggplot(aes(cramers_v, fct_reorder(variable, cramers_v), fill = chosen)) +
+  geom_col() +
+  scale_fill_manual(values = c(`TRUE` = pal[1], `FALSE` = pal[6]),
+                    labels = c(`TRUE` = "Chosen", `FALSE` = "Not chosen")) +
+  labs(title = "How strongly each demographic separates the segments",
+       x = "Cramér's V", y = NULL, fill = NULL)
+```
+
+TODO(Nandhini): once real clusters are in, check this paragraph against the chart.
+
+```{r}
+#| label: profile-check-text
+#| eval: !expr exists("soap_clusters")
+#| echo: false
+#| results: asis
+
+# One line reason for leaving each other demographic out (from the section above)
+why_not <- c(Affluence = "it largely repeats SEC and has more missing values",
+             MT = "its codes have no labels, so a difference cannot be turned into an action",
+             CHILD = "its categories have no labels in the data guide",
+             SEX = "almost every homemaker is female, so it cannot guide targeting",
+             EDU = "it has many sparse levels and is less directly tied to a soap decision",
+             FEH = "eating habits have no clear link to how bath soap is sold",
+             CS = "it only records television availability")
+
+weakest_chosen <- all_demo_v |> filter(chosen)  |> slice_min(cramers_v, n = 1, with_ties = FALSE)
+best_other     <- all_demo_v |> filter(!chosen) |> slice_max(cramers_v, n = 1, with_ties = FALSE)
+
+cat("\n\n", if (best_other$cramers_v <= weakest_chosen$cramers_v) {
+  str_glue("All three chosen variables separate the segments at least as well as any of the others ",
+           "(the strongest of the rest, {best_other$variable}, has V = {round(best_other$cramers_v, 3)}), ",
+           "so the choice is supported by the data as well as by business sense.")
+} else {
+  str_glue("{best_other$variable} separates the segments more than {weakest_chosen$variable} ",
+           "(V = {round(best_other$cramers_v, 3)} against {round(weakest_chosen$cramers_v, 3)}). ",
+           "It was still left out because {why_not[[best_other$variable]]}. ",
+           "It is reported here so a reader can see the trade-off rather than take the choice on trust.")
+}, "\n\n", sep = "")
+```
+
+## Summary table
+
+```{r}
+#| label: profile-summary
+#| eval: !expr exists("soap_clusters")
+
+profile_summary <- profile_df |>
+  group_by(cluster) |>
+  summarise(
+    households = n(),
+    sec_high   = mean(as.integer(SEC) <= 2),            # SEC 1 or 2
+    sec_low    = mean(as.integer(SEC) == 4),            # SEC 4
+    hs_median  = median(HS, na.rm = TRUE),
+    hs_mean    = mean(HS, na.rm = TRUE),
+    age_old    = mean(AGE == "4 Old")                   # oldest homemaker group
+  )
+
+profile_summary |>
+  gt() |>
+  fmt_percent(c(sec_high, sec_low, age_old), decimals = 0) |>
+  fmt_number(hs_mean, decimals = 1) |>
+  cols_label(cluster = "Segment", households = "Households",
+             sec_high = "SEC 1 or 2", sec_low = "SEC 4",
+             hs_median = "Median size", hs_mean = "Mean size",
+             age_old = "Homemaker AGE 4") |>
+  tab_spanner(label = "Socioeconomic class", columns = c(sec_high, sec_low)) |>
+  tab_spanner(label = "Household size", columns = c(hs_median, hs_mean)) |>
+  tab_header(title = "Demographic profile of each segment")
+```
+
+TODO(Nandhini): once real clusters are in, check each line against section 08 so the advice matches how each segment buys.
+
+```{r}
+#| label: profile-summary-text
+#| eval: !expr exists("soap_clusters")
+#| echo: false
+#| results: asis
+
+# Each segment is compared with the average household to suggest a price, pack and media focus
+overall <- profile_df |>
+  summarise(sec_high = mean(as.integer(SEC) <= 2), hs_mean = mean(HS, na.rm = TRUE),
+            age_old = mean(AGE == "4 Old"))
+
+lines <- profile_summary |>
+  mutate(
+    label = map_chr(cluster, seg_label),
+    price = if_else(sec_high > overall$sec_high, "a premium range", "a value range and price promotions"),
+    pack  = if_else(hs_mean  > overall$hs_mean,  "larger packs and multi-packs", "standard packs"),
+    media = if_else(age_old  > overall$age_old,  "television and in-store", "digital channels")
+  ) |>
+  str_glue_data("- **{label}** ({households} households): {pct(sec_high)} in SEC 1 or 2, a median household ",
+                "of {hs_median} members and {pct(age_old)} with the oldest homemakers. ",
+                "Suggested focus: {price}, {pack}, and {media}.")
+
+act_vars <- profile_tests |> filter(actionable) |> pull(variable)
+
+cat("\n\nPutting the three demographics together gives a short profile of each segment:\n\n",
+    paste(lines, collapse = "\n"), "\n\n",
+    if (length(act_vars) == 0) {
+      "These suggestions are only a starting point: none of the three demographics differed clearly between segments, so the purchase behaviour in section 2(d) should lead the targeting and the demographics only fine-tune it."
+    } else {
+      str_glue("The suggestions carry most weight for {str_flatten_comma(act_vars, ' and ')}, {if (length(act_vars) == 1) 'the only variable whose test' else 'the variables whose tests'} showed a real difference. {if (length(act_vars) < 3) 'The rest should be treated as a secondary guide.' else ''}")
+    }, "\n\n", sep = "")
+```
