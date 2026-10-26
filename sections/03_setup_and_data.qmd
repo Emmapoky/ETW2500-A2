@@ -51,18 +51,25 @@ demo_cols  <- c("SEC", "FEH", "MT", "SEX", "AGE", "EDU", "HS", "CHILD", "CS",
 ```{r}
 #| label: first-look
 
+# Households whose nine brand shares do not add up to 1 within 0.01.
+# Defined once here so other sections can reuse it.
+share_exceptions <- soap_raw |>
+  mutate(share_total = rowSums(pick(all_of(brand_cols), BrOthers))) |>
+  filter(abs(share_total - 1) >= 0.01) |>
+  select(MemberID, share_total)
+
 tibble(
   households        = nrow(soap_raw),
   columns           = ncol(soap_raw),
   unique_ids        = n_distinct(soap_raw$MemberID),
   missing_cells     = sum(is.na(soap_raw)),
-  brand_shares_sum1 = all(abs(rowSums(select(soap_raw, all_of(brand_cols), BrOthers)) - 1) < 0.01)
+  shares_off        = nrow(share_exceptions)
 ) |>
   gt() |>
   cols_label(households = "Households", columns = "Columns",
              unique_ids = "Unique IDs", missing_cells = "Empty cells (NA)",
-             brand_shares_sum1 = "Brand shares sum to 1") |>
+             shares_off = "Brand shares not summing to 1 (within 0.01)") |>
   tab_header(title = "Basic checks on bathsoap.csv")
 ```
 
-The data have `r nrow(soap_raw)` households and no empty cells, and every household's nine brand shares add up to about 1. That does **not** mean there is no missing information. The data guide says a code of 0 means "not specified" for the demographic variables, so the missing values are hidden inside the numbers. Section @sec-prep finds and handles them.
+The data have `r nrow(soap_raw)` households and no empty cells, and all but `r nrow(share_exceptions)` households have nine brand shares that add up to 1 within 0.01 (the exceptions are listed in @sec-q1b). A clean-looking table does **not** mean there is no missing information. The data guide says a code of 0 means "not specified" for the demographic variables, so the missing values are hidden inside the numbers. Section @sec-prep finds and handles them.
