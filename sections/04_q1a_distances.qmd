@@ -95,7 +95,7 @@ Distance based methods such as cluster analysis group households that are close 
 
 1. **Households group by the brand they buy, not by how loyal they are.** Two households that each give all of their volume to a single brand have a squared distance of exactly 2 if the brands differ, and 0 if the brands are the same. So fully loyal households form one tight group per brand and sit far from each other, even though they behave identically.
 2. **Loyalty gets far too much weight.** Nine of the columns would describe brand choice, so one idea (loyalty) would outvote volume, frequency and promotions, which would each be a single column.
-3. **The nine shares are not independent.** They add up to 1 (for all but `r nrow(filter(soap_raw, abs(rowSums(across(all_of(c(brand_cols, "BrOthers")))) - 1) >= 0.01))` households, see @sec-q1b), so any one is almost fixed by the other eight. A distance method counts the same information nine times over.
+3. **The nine shares are not independent.** They add up to 1 (for all but `r nrow(share_exceptions)` households, see @sec-q1b), so any one is almost fixed by the other eight. A distance method counts the same information nine times over.
 
 The next chunk checks this on the real data, using only the households that put **all** of their volume into one named brand.
 
@@ -108,7 +108,7 @@ nine_cols <- c(brand_cols, "BrOthers")
 # Households that put all of their volume into one single named brand.
 # max.col() finds, for each row, the column (brand) that holds the largest share.
 loyal <- soap_raw |>
-  filter(if_any(all_of(brand_cols), \(x) x == 1)) |>
+  filter(if_any(all_of(brand_cols), \(x) near(x, 1))) |>   # near(): safe comparison for decimals
   mutate(brand = brand_cols[max.col(across(all_of(brand_cols)), ties.method = "first")])
 
 # Pairwise Euclidean distance on the nine shares, kept as a square matrix

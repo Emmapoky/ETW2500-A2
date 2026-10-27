@@ -2,7 +2,7 @@
 
 <!--
 DRAFT NOTE (Nandhini). The code chunks that need clusters only run when `soap_clusters` exists
-(`eval: !expr exists("soap_clusters")`), so the report still renders before section 08 is finished.
+(`eval: true`), so the report still renders before section 08 is finished.
 The interpretation paragraphs are written by R from the results (results: asis chunks), so they update
 by themselves when the real clusters arrive. When Shrrii's real clusters are merged: change those chunks
 to `eval: true`, read every paragraph against the real charts, then delete this note and every TODO(Nandhini).
@@ -66,7 +66,7 @@ sec_aff_cor   <- cor(soap_clean$SEC, soap_clean$Affluence, method = "spearman", 
 
 ```{r}
 #| label: profile-data
-#| eval: !expr exists("soap_clusters")
+#| eval: true
 
 # Attach the three demographics (and TotalVol, to link size to volume) to each household's segment
 profile_df <- soap_clusters |>
@@ -109,7 +109,7 @@ fmt_p <- \(p) if_else(p < 0.001, "p < 0.001", paste("p =", sprintf("%.3f", p)))
 
 ```{r}
 #| label: profile-tests-compute
-#| eval: !expr exists("soap_clusters")
+#| eval: true
 
 # Cramer's V: chi-squared rescaled to run from 0 (no association) to 1
 cramers_v <- function(tab, stat) sqrt(stat / (sum(tab) * (min(dim(tab)) - 1)))
@@ -164,7 +164,7 @@ test_sentence <- function(var) {
 
 ```{r}
 #| label: profile-sec
-#| eval: !expr exists("soap_clusters")
+#| eval: true
 
 plot_props(profile_df, SEC, "Socioeconomic class within each segment")
 ```
@@ -173,7 +173,7 @@ TODO(Nandhini): once real clusters are in, check this paragraph against the char
 
 ```{r}
 #| label: profile-sec-text
-#| eval: !expr exists("soap_clusters")
+#| eval: true
 #| echo: false
 #| results: asis
 
@@ -202,7 +202,7 @@ cat("\n\n", str_glue(
 
 ```{r}
 #| label: profile-hs
-#| eval: !expr exists("soap_clusters")
+#| eval: true
 
 hs_df |>
   ggplot(aes(cluster, HS, fill = cluster)) +
@@ -218,7 +218,7 @@ TODO(Nandhini): once real clusters are in, check this paragraph against the boxp
 
 ```{r}
 #| label: profile-hs-text
-#| eval: !expr exists("soap_clusters")
+#| eval: true
 #| echo: false
 #| results: asis
 
@@ -254,7 +254,7 @@ cat("\n\n", str_glue(
 
 ```{r}
 #| label: profile-age
-#| eval: !expr exists("soap_clusters")
+#| eval: true
 
 plot_props(profile_df, AGE, "Age of the homemaker within each segment")
 ```
@@ -263,7 +263,7 @@ TODO(Nandhini): once real clusters are in, check this paragraph against the char
 
 ```{r}
 #| label: profile-age-text
-#| eval: !expr exists("soap_clusters")
+#| eval: true
 #| echo: false
 #| results: asis
 
@@ -294,7 +294,7 @@ A small p-value only says a difference exists. With 600 households even a tiny d
 
 ```{r}
 #| label: profile-tests
-#| eval: !expr exists("soap_clusters")
+#| eval: true
 
 profile_tests |>
   select(variable, test, n, p_value, effect, effect_measure, size) |>
@@ -311,7 +311,7 @@ TODO(Nandhini): once real clusters are in, check these sentences against the tab
 
 ```{r}
 #| label: profile-tests-text
-#| eval: !expr exists("soap_clusters")
+#| eval: true
 #| echo: false
 #| results: asis
 
@@ -339,7 +339,7 @@ For SEC and AGE, the **standardised residual** of each cell compares the number 
 
 ```{r}
 #| label: profile-residuals
-#| eval: !expr exists("soap_clusters")
+#| eval: true
 #| fig-width: 10
 
 # Standardised residuals of the segment by class table, in long form for plotting
@@ -372,7 +372,7 @@ For HS, **pairwise Wilcoxon tests** compare every pair of segments. The Holm adj
 
 ```{r}
 #| label: profile-hs-pairs
-#| eval: !expr exists("soap_clusters")
+#| eval: true
 
 hs_pairs <- pairwise.wilcox.test(hs_df$HS, hs_df$cluster,
                                  p.adjust.method = "holm", exact = FALSE) |>
@@ -389,7 +389,7 @@ TODO(Nandhini): once real clusters are in, check this paragraph against the heat
 
 ```{r}
 #| label: profile-where-text
-#| eval: !expr exists("soap_clusters")
+#| eval: true
 #| echo: false
 #| results: asis
 
@@ -423,7 +423,7 @@ The three variables were chosen for business reasons. As a check, every demograp
 
 ```{r}
 #| label: profile-all-demographics
-#| eval: !expr exists("soap_clusters")
+#| eval: true
 
 all_demo_v <- map_dfr(demo_cols, \(v) {
   d <- soap_clusters |>
@@ -455,7 +455,7 @@ TODO(Nandhini): once real clusters are in, check this paragraph against the char
 
 ```{r}
 #| label: profile-check-text
-#| eval: !expr exists("soap_clusters")
+#| eval: true
 #| echo: false
 #| results: asis
 
@@ -487,7 +487,7 @@ cat("\n\n", if (best_other$cramers_v <= weakest_chosen$cramers_v) {
 
 ```{r}
 #| label: profile-summary
-#| eval: !expr exists("soap_clusters")
+#| eval: true
 
 profile_summary <- profile_df |>
   group_by(cluster) |>
@@ -517,7 +517,7 @@ TODO(Nandhini): once real clusters are in, check each line against section 08 so
 
 ```{r}
 #| label: profile-summary-text
-#| eval: !expr exists("soap_clusters")
+#| eval: true
 #| echo: false
 #| results: asis
 

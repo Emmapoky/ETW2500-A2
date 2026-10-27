@@ -260,18 +260,3 @@ n_promo_only <- soap_prep |>
 **Interpretation.** `r n_flag` of the six variables were strongly skewed before any treatment (|skewness| above 1). For the variables treated with Yeo-Johnson (`r paste(yj_vars, collapse = ", ")`) the skewness fell to between `r round(min(fixed_v$skew_after), 2)` and `r round(max(fixed_v$skew_after), 2)`, which is effectively symmetric. The square root helped the promotion shares (`r paste(sqrt_vars, collapse = ", ")`) but did not remove their skew; the most skewed variable after treatment is `r worst_v$variable` at `r round(worst_v$skew_after, 2)`. That remaining skew is structural rather than a flaw in the method: around half the households never buy on those promotions, so a large block sits at zero however the scale is stretched. It is therefore reported as a limitation. It also tells the clustering something real, namely that there is a group of households that never respond to promotions.
 
 After the recipe every variable has a mean of 0 and a standard deviation of 1 (second table above), so no variable dominates a distance only because of its units. Beyond three standard deviations there are `r n_outlier_hh` households (`r percent(n_outlier_hh / nrow(soap_prep), accuracy = 0.1)` of 600) with at least one extreme value, and `r n_promo_only` of them are extreme only on the promotion shares. These households are **kept**. They are genuine heavy promotion users, which is exactly the behaviour a segmentation should be able to find, and removing them would hide the group a promotion-led client most wants to identify. If the clustering is found to be driven by a handful of them, the sensitivity of the result to these households should be tested in Question 2(c).
-
-<!--
-INSTRUCTIONS FOR EVERYONE USING THIS SECTION (Erwyna wrote it, so ask me if anything is unclear)
-
-This section produces the objects the rest of the report depends on. Do NOT change them without telling me:
-  soap_clean       all 600 households, demographics recoded (zeros and CHILD 5 turned into NA)
-  cluster_vars     the six chosen variables (defined by Taabish in section 6)
-  soap_cluster_raw MemberID plus the six variables before any transformation
-  soap_prep        MemberID plus the six variables, Yeo-Johnson (if needed) then standardised. THIS is what
-                   Shrrii clusters and what Nandhini runs PCA on. Do not standardise it a second time.
-  prep_rec         the fitted recipe (kept so the steps can be explained and reused)
-
-If the team changes cluster_vars at M2, nothing here needs editing: the section recomputes everything from that vector.
-Pay attention to demographics: soap_clean keeps NA. Nandhini decides, per demographic, how to handle NA in profiling.
--->

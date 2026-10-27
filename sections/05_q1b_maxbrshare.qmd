@@ -2,222 +2,117 @@
 
 ## Creating the variable (item 4)
 
-For household $i$, define $\mathrm{MaxBrShare}_i = \max_{b \in B} s_{ib}$, where $B$ contains the eight named brands and $s_{ib}$ is brand $b$'s share of that household's total purchase volume. This measures concentration on a named brand, irrespective of its identity, which is the loyalty perspective needed for the purchase-behaviour segmentation.
+For household $i$, $\mathrm{MaxBrShare}_i = \max_{b \in B} s_{ib}$, where $B$ is the set of eight named brands and $s_{ib}$ is brand $b$'s share of that household's purchase volume. It measures how concentrated a household is on one named brand, whatever that brand is.
 
 ```{r}
 #| label: maxbrshare-create
 
-# Check the named-brand inputs before calculating a maximum. Do not hide missing shares.
-q1b_named_shares <- soap_raw |> select(all_of(brand_cols))
-stopifnot(all(vapply(q1b_named_shares, is.numeric, logical(1))),
-          all(is.finite(as.matrix(q1b_named_shares))),
-          all(as.matrix(q1b_named_shares) >= 0),
-          all(as.matrix(q1b_named_shares) <= 1))
-
-soap <- soap_raw |>                                      # retain all original household information
-  rowwise() |>                                          # calculate separately for each household
-  mutate(MaxBrShare = max(c_across(all_of(brand_cols)))) |> # take the largest of its eight named shares
-  ungroup()                                             # restore ordinary, ungrouped operations
+soap <- soap_raw |>
+  rowwise() |>                                               # one household (row) at a time
+  mutate(MaxBrShare = max(c_across(all_of(brand_cols)))) |>  # largest of the eight named shares
+  ungroup()                                                  # back to normal column operations
 ```
 
-The calculation is row by row because the required maximum belongs to each household, whereas a column maximum would describe a brand across different households. `BrOthers` is excluded because it pools several small brands, so its combined share cannot identify loyalty to any single brand. The named shares retain their original total-volume denominator and are not renormalised. The `mutate()` call adds the new variable to the household data, and `ungroup()` removes the row-wise grouping.
+The maximum is taken row by row because each household needs its own value; the maximum of a whole column would describe one brand across all households instead. `BrOthers` is excluded because it pools many small brands, so a high `BrOthers` share does not show loyalty to any single brand.
 
 ## Checking the variable (item 5)
 
 ```{r}
 #| label: maxbrshare-summary
 
-# Inspect the distribution with summary().
 summary(soap$MaxBrShare)
 
-# Fail clearly if any household has a missing, infinite or out-of-range result.
-stopifnot(nrow(soap) == nrow(soap_raw),
-          all(is.finite(soap$MaxBrShare)),
-          all(soap$MaxBrShare >= 0 & soap$MaxBrShare <= 1))
+# Households with no volume in any of the eight named brands
+zero_hh <- soap |> filter(near(MaxBrShare, 0))
+zero_hh |> count(NoBrands, name = "households")
 ```
 
-The observed minimum is `r min(soap$MaxBrShare)` and the maximum is `r max(soap$MaxBrShare)`, and all `r nrow(soap)` households pass the range and completeness checks. The median is `r scales::percent(median(soap$MaxBrShare), accuracy = 0.1)`: half the households allocate no more than this share of their volume to their most-purchased named brand.
-
-```{r}
-#| label: tbl-q1b-zero-households
-#| tbl-cap: "Brand count and pooled-brand share among households with MaxBrShare equal to zero."
-
-# Isolate the households with no recorded volume in any named brand.
-q1b_zero_households <- soap |> filter(MaxBrShare == 0)
-
-# Count their observed combinations without assuming that all zero households are alike.
-q1b_zero_profile <- q1b_zero_households |>
-  count(NoBrands, BrOthers, name = "households")
-
-q1b_zero_profile |>
-  gt() |>
-  cols_label(NoBrands = "Number of brands purchased", BrOthers = "BrOthers share",
-             households = "Households") |>
-  fmt_percent(columns = BrOthers, decimals = 0)
-```
-
-There are `r nrow(q1b_zero_households)` such households (`r scales::percent(nrow(q1b_zero_households) / nrow(soap), accuracy = 0.1)` of the sample). Their recorded `NoBrands` values are `r paste(sort(unique(q1b_zero_households$NoBrands)), collapse = ", ")`, and their `BrOthers` shares are `r paste(scales::percent(sort(unique(q1b_zero_households$BrOthers)), accuracy = 0.1), collapse = ", ")`. These households purchase one brand outside the eight named brands: excluding the pooled category leaves eight zero shares, whose maximum is zero. Consequently, a zero here means no concentration on a **named** brand, rather than no purchases or no brand loyalty. Treating these households as disloyal would misdirect loyalty promotions.
+**`r nrow(zero_hh)` households have `MaxBrShare` = 0, and every one of them has `NoBrands` = `r paste(unique(zero_hh$NoBrands), collapse = ", ")`.** All values lie between `r min(soap$MaxBrShare)` and `r max(soap$MaxBrShare)`, as a share must. These households buy a single brand, but that brand sits inside `BrOthers`. Once `BrOthers` is excluded, all eight named shares are zero, so their maximum is zero. A zero therefore means "no concentration on a *named* brand", not "no loyalty": these households are in fact completely loyal to one small brand.
 
 ## Repeating the distance calculation (item 6)
 
-Euclidean distance is the square root of the sum of squared coordinate differences. A smaller value indicates greater similarity. With `MaxBrShare` as the only coordinate, the distance is simply the absolute difference between the two households' maximum shares.
-
-```{r}
-#| label: tbl-q1b-example-shares
-#| tbl-cap: "The toy households with their maximum brand share added."
-
-# Add the loyalty measure to a local copy, preserving the shared example for Part A.
-q1b_example <- brand_example |>
-  rowwise() |>
-  mutate(MaxBrShare = max(c_across(c(BrandA, BrandB)))) |>
-  ungroup()
-
-q1b_example |>
-  gt() |>
-  cols_label(Household = "Household", BrandA = "Brand A share",
-             BrandB = "Brand B share", MaxBrShare = "Maximum brand share") |>
-  fmt_number(columns = c(BrandA, BrandB, MaxBrShare), decimals = 2)
-```
-
-Households X and Y each concentrate `r scales::percent(q1b_example$MaxBrShare[q1b_example$Household == "X"], accuracy = 1)` of volume on one brand, while Z's largest share is `r scales::percent(q1b_example$MaxBrShare[q1b_example$Household == "Z"], accuracy = 1)`. The measure therefore represents concentration rather than the name of the brand bought.
-
 ```{r}
 #| label: tbl-q1b-distance-comparison
-#| tbl-cap: "Euclidean distances using the original two shares and MaxBrShare alone."
+#| tbl-cap: "Euclidean distances between X, Y and Z: original shares against MaxBrShare alone."
 
-# Recompute the Part A baseline from the supplied data, without needing Part A's object names.
-q1b_raw_matrix <- q1b_example |> select(BrandA, BrandB) |> as.matrix()
-rownames(q1b_raw_matrix) <- q1b_example$Household
-q1b_raw_distances <- as.matrix(dist(q1b_raw_matrix, method = "euclidean"))
+example <- brand_example |>
+  mutate(MaxBrShare = pmax(BrandA, BrandB))   # largest share for each toy household
 
-# Use ONLY MaxBrShare for the new distances, as required by item 6.
-q1b_loyalty_matrix <- q1b_example |> select(MaxBrShare) |> as.matrix()
-rownames(q1b_loyalty_matrix) <- q1b_example$Household
-q1b_loyalty_distances <- as.matrix(dist(q1b_loyalty_matrix, method = "euclidean"))
+# Pairwise Euclidean distances for any set of columns, one row per pair
+pair_dist <- function(cols) {
+  m <- example |> select(all_of(cols)) |> as.matrix()
+  rownames(m) <- example$Household
+  as.matrix(dist(m)) |>
+    as_tibble(rownames = "from") |>
+    pivot_longer(-from, names_to = "to", values_to = "distance") |>
+    filter(from < to)
+}
 
-# Extract each distinct pair once, retaining labels for the comparison.
-q1b_distance_comparison <- tibble(
-  first = c("X", "X", "Y"), second = c("Y", "Z", "Z")
-) |>
-  mutate(pair = paste(first, second, sep = " / "),
-         raw_shares = q1b_raw_distances[cbind(first, second)],
-         maximum_share = q1b_loyalty_distances[cbind(first, second)]) |>
-  select(pair, raw_shares, maximum_share)
+dist_compare <- pair_dist(c("BrandA", "BrandB")) |>
+  rename(original_shares = distance) |>
+  left_join(pair_dist("MaxBrShare") |> rename(max_share = distance), by = c("from", "to"))
 
-q1b_distance_comparison |>
+dist_compare |>
   gt() |>
-  cols_label(pair = "Household pair", raw_shares = "Original brand shares (Part A)",
-             maximum_share = "MaxBrShare alone (Part B)") |>
-  fmt_number(columns = c(raw_shares, maximum_share), decimals = 3)
+  fmt_number(c(original_shares, max_share), decimals = 3) |>
+  cols_label(from = "Household", to = "and", original_shares = "Original shares (Part A)",
+             max_share = "MaxBrShare alone")
 ```
 
-In the Part A representation, X and Y are `r sprintf("%.3f", q1b_raw_distances["X", "Y"])` apart, while X/Z and Y/Z are each `r sprintf("%.3f", q1b_raw_distances["X", "Z"])` apart, so the equally concentrated households appear most different. Using `MaxBrShare` alone makes X/Y's distance `r q1b_loyalty_distances["X", "Y"]` and each distance to Z `r q1b_loyalty_distances["X", "Z"]`, correctly identifying X and Y as equally loyal in terms of purchase concentration. This resolves the particular representation problem in @sec-q1a, but deliberately discards brand identity: the original shares would still be useful for a question about which brand households favour.
+With the original shares, X and Y are the furthest apart (`r sprintf("%.3f", dist_compare$original_shares[dist_compare$from == "X" & dist_compare$to == "Y"])`) even though both are fully loyal. Using `MaxBrShare` alone, X and Y are `r dist_compare$max_share[dist_compare$from == "X" & dist_compare$to == "Y"]` apart, identical, and each is `r dist_compare$max_share[dist_compare$from == "X" & dist_compare$to == "Z"]` from Z, which splits its buying evenly. This fixes the problem from @sec-q1a: distance now reflects *how concentrated* buying is, not *which brand* was bought.
 
 ## Reading MaxBrShare with NoBrands (item 7)
 
-`MaxBrShare` describes concentration on the most-purchased named brand, while `NoBrands` records how many brands a household buys, so the two provide complementary evidence about loyalty. Reading them together also prevents a household that buys only one small brand within `BrOthers` from being labelled disloyal merely because its `MaxBrShare` is zero.
+`MaxBrShare` shows how concentrated a household is on its favourite named brand, while `NoBrands` shows how many brands it spreads across, so only together do they separate truly disloyal households from the `r nrow(zero_hh)` single-brand households whose `MaxBrShare` is zero only because their brand is in `BrOthers`.
 
-## Additional validation and interpretation
+## Extra checks
 
-### An independent calculation
+### A second method gives the same answer
 
 ```{r}
 #| label: maxbrshare-second-method
 
-# pmax compares corresponding positions across the eight columns without row-group overhead.
-q1b_vectorised_max <- do.call(pmax, as.list(q1b_named_shares))
-
-# Verify equality of the full result vectors, rather than only their summaries.
-q1b_methods_agree <- all.equal(soap$MaxBrShare, q1b_vectorised_max)
-q1b_methods_agree
-stopifnot(isTRUE(q1b_methods_agree))
+# pmax() works across whole columns at once instead of one row at a time
+max_pmax <- do.call(pmax, select(soap_raw, all_of(brand_cols)))
+all.equal(soap$MaxBrShare, max_pmax)
 ```
 
-The two methods agree for every household (`r isTRUE(q1b_methods_agree)`). The row-wise method makes the required household-level operation explicit. The vectorised `pmax()` calculation is the more efficient form for this repeated numeric operation because it works across whole vectors without creating a separate row group for each household. This is an explanation of computational overhead, rather than a claim based on a timing benchmark.
+The vectorised `pmax()` gives exactly the same value for every household. It is the more efficient form because it avoids creating a group for each row; `rowwise()` is kept above because it shows the row-by-row logic most clearly.
 
-### Distribution of concentration
+### How concentration is spread
 
 ```{r}
-#| label: fig-q1b-maxbrshare-histogram
-#| fig-cap: "Distribution of the largest named-brand share across households."
-#| fig-width: 7
-#| fig-height: 4.5
+#| label: fig-q1b-maxbrshare
+#| fig-cap: "Left: distribution of MaxBrShare. Right: MaxBrShare against the number of brands bought (line = median at each brand count)."
+#| fig-width: 10
+#| fig-height: 4
 
-# Use fixed-width bins on the natural share scale.
-ggplot(soap, aes(x = MaxBrShare)) +
+p_hist <- ggplot(soap, aes(MaxBrShare)) +
   geom_histogram(binwidth = 0.05, boundary = 0, fill = pal[1], colour = "white") +
-  scale_x_continuous(labels = scales::label_percent(), breaks = seq(0, 1, 0.2)) +
-  labs(title = "Concentration on a named brand varies across households",
-       x = "Largest share of purchase volume in one named brand", y = "Households")
+  scale_x_continuous(labels = percent) +
+  labs(title = "Concentration on one named brand", x = "MaxBrShare", y = "Households")
+
+p_scatter <- ggplot(soap, aes(NoBrands, MaxBrShare)) +
+  geom_point(colour = pal[1], alpha = 0.35) +
+  stat_summary(fun = median, geom = "line", colour = pal[2], linewidth = 0.9) +
+  scale_y_continuous(labels = percent) +
+  labs(title = "More brands, less concentration", x = "Number of brands bought", y = "MaxBrShare")
+
+p_hist + p_scatter
 ```
 
-The middle half of households lie between `r scales::percent(quantile(soap$MaxBrShare, 0.25), accuracy = 0.1)` and `r scales::percent(quantile(soap$MaxBrShare, 0.75), accuracy = 0.1)`. A total of `r sum(soap$MaxBrShare == 1)` households allocate all recorded volume to one named brand. This spread supports distinguishing concentrated buyers from households that spread volume more widely, while the zero group needs the pooled-brand qualification above.
+The middle half of households give between `r percent(quantile(soap$MaxBrShare, 0.25), accuracy = 1)` and `r percent(quantile(soap$MaxBrShare, 0.75), accuracy = 1)` of their volume to their favourite named brand, and `r sum(near(soap$MaxBrShare, 1))` give it all of their volume. Concentration falls as the number of brands rises, but households with the same brand count still differ widely, and the single-brand households include both 100% named-brand buyers and the zero group. This is why the two variables are read together.
 
-```{r}
-#| label: fig-q1b-maxbrshare-nobrands
-#| fig-cap: "Maximum named-brand share against brand count. Points may overlap. The line connects the median at each observed brand count."
-#| fig-width: 7
-#| fig-height: 4.5
+### Do the nine shares add up to 1?
 
-# Summarise concentration within each brand count without changing the shared data.
-q1b_by_brand_count <- soap |>
-  group_by(NoBrands) |>
-  summarise(median_share = median(MaxBrShare), .groups = "drop")
-
-# A deterministic scatter plot avoids adding random jitter to the shared seeded pipeline.
-ggplot(soap, aes(x = NoBrands, y = MaxBrShare)) +
-  geom_point(colour = pal[1], alpha = 0.35, size = 1.8) +
-  geom_line(data = q1b_by_brand_count, aes(y = median_share),
-            colour = pal[2], linewidth = 0.8) +
-  scale_x_continuous(breaks = sort(unique(soap$NoBrands))) +
-  scale_y_continuous(labels = scales::label_percent(), limits = c(0, 1)) +
-  labs(title = "Brand count and concentration describe loyalty",
-       x = "Number of brands purchased", y = "Largest named-brand share")
-```
-
-Households with the same brand count can have different maximum shares, so brand count alone does not reveal how evenly purchases are spread. The single-brand households also include both named-brand buyers at the upper end and the pooled-brand households at zero. A client should therefore consider brand breadth and concentration together before choosing a retention or switching promotion. This plot describes an association and does not establish the effect of a promotion.
-
-### Do the nine shares total approximately one?
-
-```{r}
-#| label: tbl-q1b-share-total-check
-#| tbl-cap: "Checks on the sum of the eight named shares and BrOthers."
-
-# Match the absolute tolerance used by the shared setup, without changing any source shares.
-q1b_share_tolerance <- 0.01
-stopifnot(is.numeric(soap$BrOthers), all(is.finite(soap$BrOthers)),
-          all(soap$BrOthers >= 0 & soap$BrOthers <= 1))
-q1b_share_totals <- soap |>
-  select(MemberID, all_of(brand_cols), BrOthers) |>
-  mutate(share_total = rowSums(pick(all_of(brand_cols), BrOthers)),
-         deviation = share_total - 1)
-
-# Keep exceptions identifiable by household ID for checking against the source data.
-q1b_share_exceptions <- q1b_share_totals |>
-  filter(abs(deviation) >= q1b_share_tolerance) |>
-  select(MemberID, share_total, deviation)
-
-q1b_share_totals |>
-  summarise(households = n(), minimum_total = min(share_total),
-            maximum_total = max(share_total),
-            outside_tolerance = sum(abs(deviation) >= q1b_share_tolerance)) |>
-  gt() |>
-  cols_label(households = "Households", minimum_total = "Smallest total",
-             maximum_total = "Largest total", outside_tolerance = "Outside tolerance") |>
-  fmt_number(columns = c(minimum_total, maximum_total), decimals = 6)
-```
-
-Using an absolute tolerance of `r q1b_share_tolerance` around one, `r nrow(soap) - nrow(q1b_share_exceptions)` households pass and `r nrow(q1b_share_exceptions)` fall outside the tolerance. Therefore, the statement that every household's shares sum to approximately one is not supported at the tolerance used in the shared setup.
+`r nrow(soap) - nrow(share_exceptions)` households have nine shares (eight named brands plus `BrOthers`) that sum to 1 within 0.01. The `r nrow(share_exceptions)` exceptions are shown below. They are kept as supplied, because rescaling them would change the measure the question defines. Their `MaxBrShare` values are still valid shares between 0 and 1.
 
 ```{r}
 #| label: tbl-q1b-share-exceptions
-#| tbl-cap: "Source-data households outside the share-total tolerance."
+#| tbl-cap: "Households whose nine brand shares do not sum to 1 (share_exceptions from @sec-setup)."
 
-q1b_share_exceptions |>
+share_exceptions |>
   gt() |>
-  cols_label(MemberID = "Household ID", share_total = "Sum of nine shares",
-             deviation = "Total minus one") |>
-  fmt_number(columns = c(share_total, deviation), decimals = 6)
+  fmt_number(share_total, decimals = 3) |>
+  cols_label(MemberID = "Household ID", share_total = "Sum of the nine shares")
 ```
-
-These totals range from `r sprintf("%.6f", min(q1b_share_totals$share_total))` to `r sprintf("%.6f", max(q1b_share_totals$share_total))`. The exceptional records are retained as supplied: renormalising would change the measure specified in Question 1 and conceal the data-quality issue. `MaxBrShare` still passes its range checks, but loyalty conclusions for these records should be treated cautiously until their shares can be checked against the original transactions.

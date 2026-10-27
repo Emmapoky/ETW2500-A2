@@ -356,7 +356,7 @@ cat("\n\n", str_glue(
 
 ```{r}
 #| label: pca-clusters-text
-#| eval: !expr exists("soap_clusters")
+#| eval: true
 #| echo: false
 #| results: asis
 

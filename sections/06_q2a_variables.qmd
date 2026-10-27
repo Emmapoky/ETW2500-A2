@@ -29,7 +29,8 @@ cluster_vars <- c("TotalVol",       # volume: total amount of soap bought
 soap |>
   select(all_of(cluster_vars)) |>
   summarise(across(everything(), list(mean = mean, sd = sd, min = min, max = max))) |>
-  pivot_longer(everything(), names_to = c("variable", ".value"), names_sep = "_") |>
+  pivot_longer(everything(), names_to = c("variable", ".value"),
+               names_pattern = "(.+)_(mean|sd|min|max)") |>   # safe for names that contain "_"
   gt() |>
   fmt_number(columns = c(mean, sd, min, max), decimals = 2) |>
   cols_label(variable = "Variable", mean = "Mean", sd = "SD", min = "Minimum", max = "Maximum") |>
