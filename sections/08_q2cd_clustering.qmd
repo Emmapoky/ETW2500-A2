@@ -48,17 +48,49 @@ Remove each TODO(Shrrii) when done. tools/check_todos.R lists what is left.
 ## Choosing the method
 
 TODO(Shrrii): which method, which distance, which linkage, and why it suits this data.
+Hierarchical clustering with Ward's Linkage. 
 
 ## Choosing the number of groups
 
 ```{r}
 #| label: choose-k
-#| eval: false
+#| eval: true
+
+# Create the clusters on the 6 variables only (excluding MemberID because it's a label)
+cluster_data <- soap_prep |> select(all_of(cluster_vars))
 
 # TODO(Shrrii): elbow (fviz_nbclust, method = "wss") and silhouette (method = "silhouette") on soap_prep,
+# Elbow and silhouette using Hierarchical Clustering with Ward's Linkage
+p_elbow <- fviz_nbclust(cluster_data, FUNcluster = hcut, method = "wss", k.max = 10, hc_method = "ward.D2") +
+            labs(title = "(A) Elbow Method")
+
+p_silhouette <- fviz_nbclust(cluster_data, FUNcluster = hcut, method = "silhouette", k.max = 10, hc_method = "ward.D2") +
+                labs(title = "(B) Silhouette Method")
+
+p_elbow + p_silhouette
+
+# Hierarchical clustering using Euclidean distance, Ward's linkage
+hc_ward <- cluster_data |> 
+            dist(method = "euclidean") |>
+            hclust(method = "ward.D2")
+
+# Deciding which cluster should be used for k_final
+table(cutree(hc_ward, k =2))
+table(cutree(hc_ward, k = 6))
+
+# Number of clusters selected
+k_final <- 6
+
 # using only the six cluster_vars columns (not MemberID):   select(soap_prep, all_of(cluster_vars))
 # TODO(Shrrii): dendrogram with fviz_dend() if you use hierarchical clustering.
-# TODO(Shrrii): change eval: false to eval: true once your code is in.
+fviz_dend(hc_ward, k = k_final, show_labels = FALSE, k_colors = pal[1:k_final], main = "Dendrogram (Ward's Linkage)")
+
+# Group means on the prepared variables (already standardised in Section 7; 0 = average household)
+cluster_data |>
+mutate(group = cutree(hc_ward, k = k_final)) |>
+group_by(group) |>
+summarise( n = n(), across(everything(), \(x) round(mean(x), 2)))
+
 ```
 
 TODO(Shrrii): the evidence for k, in words, plus the business reasoning.
@@ -67,10 +99,29 @@ TODO(Shrrii): the evidence for k, in words, plus the business reasoning.
 
 ```{r}
 #| label: final-clusters
-#| eval: false
+#| eval: true
 
 # TODO(Shrrii): build the final clustering and END this chunk with the handover object:
 #   soap_clusters <- tibble(MemberID = soap_prep$MemberID, cluster = factor(<your cutree or kmeans result>))
+# Cut the ward tree into k_final groups
+ward_groups <- cutree(hc_ward, k = k_final)
+
+# Determine the number of households in each groups
+table(ward_groups)
+
+# Names chosen from the standardized group means above
+segment_names <- c("1" = "Mainstream non-loyal buyers",
+                   "2" = "Heavy multi-brand shoppers",
+                   "3" = "Light occasional buyers",
+                   "4" = "Loyal regular-price buyers",
+                   "5" = "Loyal promotion buyers",
+                   "6" = "Promo-6 buyers")
+
+# To be used for question 2e
+soap_clusters <- tibble(MemberID = soap_prep$MemberID,
+                        cluster = factor(ward_groups)) |>
+                        mutate(segment = unname(segment_names[as.character(cluster)]))
+
 ```
 
 ## Describing each group (2d)
