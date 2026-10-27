@@ -1,11 +1,56 @@
 # Conclusion and Recommendations {#sec-conclusion}
 
-<!--
-INSTRUCTIONS FOR ERWYNA (me). Written after M3 once the groups and components are agreed. Delete when final.
-Structure: (1) what we found, one short paragraph per segment with its name; (2) the PCA components in one paragraph and
-how they relate to the segments; (3) one promotion recommendation per segment in a table; (4) limitations: 600
-household subset, the "not specified" codes and the CHILD = 5 assumption, one clustering solution, behaviour measured
-over one period only, no causal claims; (5) next steps. Every number must come from inline R code.
--->
+## What we found
 
-TODO(Erwyna): write after the groups and components are final.
+XYZ asked whether the bath soap market could be segmented by **how households buy** rather than by who they are. It can. Question 1 showed that raw brand shares measure *which* brand a household buys, not *how loyal* it is, so they were replaced by a single concentration measure, `MaxBrShare`. Six behaviour variables covering volume, frequency, promotion response and loyalty were then cleaned, corrected for skewness and standardised (@sec-prep), and Ward's hierarchical clustering grouped the `r nrow(soap_clusters)` households into **six segments** (@sec-cluster).
+
+```{r}
+#| label: conclusion-values
+#| echo: false
+
+seg_n  <- \(seg) segment_means$households[segment_means$segment == seg]
+```
+
+The PCA in @sec-pca confirms the structure from a second direction. Three components keep `r round(cum_keep, 1)`% of the information: **shopping activity and brand variety**, **loyal bulk buying against promotion 6**, and **response to other promotions**. Segment membership explains `r percent(seg_r2[["PC1"]], accuracy = 1)`, `r percent(seg_r2[["PC2"]], accuracy = 1)` and `r percent(seg_r2[["PC3"]], accuracy = 1)` of the variation in these three components, so the segments line up with clear, nameable dimensions of behaviour rather than with noise.
+
+The demographic profile in @sec-profile adds one important lesson: **the segments are only weakly visible in demographics.** Socioeconomic class and household size differ between segments, but the effects are small, and age does not differ at all. A client could not have found these segments from demographics, which is exactly why XYZ's move to behavioural segmentation is worthwhile.
+
+## Recommendations for XYZ's clients
+
+```{r}
+#| label: tbl-recommendations
+#| tbl-cap: "One promotion approach per segment, from purchase behaviour (Question 2d) and demographics (Question 2e)."
+
+recommendations <- tribble(
+  ~segment,                      ~what_defines_it,                                              ~recommended_approach,
+  "Loyal regular-price buyers",  "Most volume on one brand, almost no promotion buying",        "Reward and loyalty schemes to keep them; avoid discounts, which only give away margin",
+  "Loyal promotion buyers",      "The most loyal segment, and heavy users of other promotions", "Price promotions and value packs on the brand they already favour",
+  "Heavy multi-brand shoppers",  "The most volume and transactions, spread across many brands", "Family and multi-packs tied to one brand, with rewards that concentrate their spending",
+  "Promo-6 buyers",              "Low loyalty, heavy use of promotion 6, more higher-class households", "Promotion 6 offers spread across the year; a cheaper product is not needed",
+  "Mainstream non-loyal buyers", "Average volume, no brand loyalty, rarely buys on promotion",  "In-store trial and visibility to win a favourite brand; discounts are unlikely to move them",
+  "Light occasional buyers",     "Very low volume, few transactions, poorly recorded demographics", "Lowest priority for promotion spending"
+) |>
+  mutate(households = map_int(segment, seg_n), .after = segment)
+
+recommendations |>
+  gt() |>
+  cols_label(segment = "Segment", households = "Households",
+             what_defines_it = "What defines it", recommended_approach = "Recommended approach") |>
+  cols_width(segment ~ px(170), households ~ px(90))
+```
+
+The segments differ in *when* and *how* a promotion pays off, which is what lets a client spread several promotions across the year instead of one blanket discount. The two loyal segments together hold `r seg_n("Loyal regular-price buyers") + seg_n("Loyal promotion buyers")` households, and they need opposite treatment: one should be rewarded without discounts, the other responds to discounts on its own brand. Treating them as one "loyal" group, as a demographic segmentation would, would waste the promotion budget on the first and under-serve the second.
+
+## Limitations
+
+- **The segments overlap.** The average silhouette width at six clusters is only `r sprintf("%.3f", k_compare$average_silhouette[k_compare$k == 6])`, and k-means puts `r percent(agreement, accuracy = 0.1)` of households in the matching group. The segment cores are clear, but households near the borders could reasonably belong to a neighbouring segment, especially the Mainstream non-loyal buyers.
+- **Six groups is partly a judgement.** The silhouette slightly favours two groups; six was chosen because two would mix loyal and light buyers, which no client could act on (@sec-choose-k).
+- **Data quality.** Demographics coded 0 were treated as missing, and `CHILD` = 5 was treated as an undocumented "not specified" code. `r nrow(share_exceptions)` households have brand shares that do not sum to 1, and most of the households with no demographic information sit in the Light occasional segment.
+- **Skewness in the promotion shares remains.** About half the households never use each promotion, so even after the square root the promotion shares stay skewed. This reflects real behaviour but makes those variables less symmetric than the others.
+- **One sample, one period, no causation.** The analysis uses a subset of `r nrow(soap_raw)` households over a single period. The recommendations describe which promotion *fits* each segment's behaviour; they do not prove that a promotion *causes* a change, which only a controlled test could show.
+
+## Next steps
+
+1. Run the same segmentation on the full panel and on a later period, to check that the six segments are stable and to see which households move between them.
+2. Test the recommended promotions with a controlled trial in one market before rolling them out, so their effect on each segment can be measured.
+3. Consider adding a brand switching variable such as `TransPerRun`, which @sec-q2a identified as the best candidate, to capture the third view of loyalty in the brief.

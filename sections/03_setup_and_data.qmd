@@ -2,7 +2,7 @@
 
 ## Packages, seed and theme
 
-All packages are loaded in one chunk, before anything else runs. `pacman::p_load()` installs any package that is missing on the reader's machine, so the report renders without a separate installation step. There is no `install.packages()` call anywhere in this document.
+All packages are loaded in one chunk, before anything else runs. `pacman::p_load()` installs any package that is missing on the reader's machine, so the report renders without a separate installation step. There is no `install.packages()` call anywhere in this document. The analysis is written in R [@rcore2026] with the tidyverse [@wickham2019tidyverse] for data handling and graphics and tidymodels [@kuhn2020tidymodels; @R-recipes] for the preparation and PCA recipes. Clustering uses `cluster` [@R-cluster] and `factoextra` [@R-factoextra], tables use `gt` [@R-gt], paths use `here` [@R-here], and combined figures use `patchwork` [@R-patchwork].
 
 ```{r}
 #| label: setup

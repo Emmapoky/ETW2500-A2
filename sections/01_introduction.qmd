@@ -1,5 +1,15 @@
 # Introduction {#sec-intro}
 
+::: {.callout-tip appearance="simple" icon="false"}
+## Executive summary
+
+- **Six behavioural segments.** Ward's hierarchical clustering on six purchase variables (volume, frequency, two promotion shares, number of brands and `MaxBrShare`) splits the 600 households into Mainstream non-loyal buyers (140), Heavy multi-brand shoppers (132), Loyal regular-price buyers (127), Promo-6 buyers (117), Loyal promotion buyers (49) and Light occasional buyers (35).
+- **Loyalty is measured as concentration, not brand.** Raw brand shares would group households by *which* brand they buy; the single variable `MaxBrShare` measures *how concentrated* their buying is, which is what loyalty means (Question 1).
+- **Three dimensions explain the segments.** PCA keeps three components (74% of the variation): shopping activity and brand variety, loyal bulk buying against promotion 6, and response to other promotions. Segment membership explains between 42% and 62% of each.
+- **Demographics barely separate the segments.** Socioeconomic class and household size differ only slightly and age not at all, so clients should target these segments with purchase data, using demographics only to fine-tune.
+- **One approach per segment.** Rewards without discounts for the Loyal regular-price buyers, own-brand price promotions for the Loyal promotion buyers, brand-tied multi-packs for the Heavy multi-brand shoppers, well-timed promotion 6 offers for the Promo-6 buyers, and the lowest priority for the Light occasional buyers. The main caution is that segment borders overlap (a k-means check agrees on 66.5% of households).
+:::
+
 ## Business problem
 
 XYZ is an Asian market research agency that tracks the purchase behaviour of household panels across more than 100 cities and towns. Its clients are advertising agencies, which use the data to advise on advertising and promotion, and consumer goods manufacturers, which use it to monitor market share. Until now XYZ has segmented markets by purchaser *demographics*. This report segments the bath soap market by purchase *behaviour* instead: how much a household buys (volume), how often it buys (frequency), how strongly it responds to discounts (promotion sensitivity) and how loyal it is to a brand.
@@ -17,11 +27,3 @@ This report answers three questions on a panel of 600 households:
 ## Approach
 
 The analysis runs in one line of dependencies. The loyalty variable `MaxBrShare` (Question 1) feeds the choice of six behaviour variables (Question 2a). Those six are cleaned, corrected for skewness and standardised (Question 2b). The prepared data are then clustered and the groups described (Question 2c and 2d) and profiled with demographics (Question 2e). The same six prepared variables are also summarised by principal component analysis (Question 3).
-
-::: {.callout-note}
-## Executive summary
-
-<!-- TODO(Erwyna): write this LAST, after the groups and components are agreed at M3. Five bullets: how many segments and what they are called, the one strongest contrast between them, what the PCA components are, one promotion recommendation per segment, and the main limitation. Every number must be typed with inline R code, never copied by hand. Delete this comment when done. -->
-
-*To be completed once the analysis is final.*
-:::
