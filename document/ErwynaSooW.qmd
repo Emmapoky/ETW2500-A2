@@ -8,12 +8,18 @@ format:
   html:
     theme: cosmo
     css: style.css
+    title-block-banner: true
     toc: true
     toc-depth: 3
     toc-location: left
+    toc-title: "Contents"
     number-sections: true
     code-fold: false
     code-tools: true
+    code-copy: true
+    tbl-cap-location: top
+    fig-cap-location: bottom
+    link-external-newwindow: true
     smooth-scroll: true
     fig-align: center
     fig-format: png
