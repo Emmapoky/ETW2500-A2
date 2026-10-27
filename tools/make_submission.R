@@ -33,14 +33,23 @@ flat <- map_chr(flat, \(line) {
   line
 })
 if (any(str_detect(flat, "\\| withheld \\|"))) stop("A student ID is still 'withheld'. Check tools/member_ids.csv.", call. = FALSE)
+# Drop internal team comments (<!-- ... -->); the marker only needs the report itself
+flat <- str_remove_all(paste(flat, collapse = "\n"), regex("<!--.*?-->\\n?", dotall = TRUE)) |>
+  str_split_1("\n")
 writeLines(flat, file.path(out, "document/ErwynaSooW.qmd"))
 
 file.copy(list.files("data", full.names = TRUE), file.path(out, "data"))
 file.copy(c("ErwynaSooW.Rproj"), out)
+file.copy("tools/SUBMISSION_README.md", file.path(out, "README.md"))   # how to open and run
 file.copy(c("document/style.css", "document/references.bib"), file.path(out, "document"))
 
 # Render from inside the clean folder so any path problem shows up now.
 old <- setwd(file.path(out, "document")); on.exit(setwd(old))
-system2("quarto", c("render", "ErwynaSooW.qmd"))
+# UTF-8 locale so accented letters and symbols render correctly on any machine
+system2("quarto", c("render", "ErwynaSooW.qmd"), env = "LANG=en_US.UTF-8")
 unlink(file.path(old, out, "document", ".quarto"), recursive = TRUE)  # hidden build cache
-message("Done. Check ", file.path(old, out), " then zip the folder ErwynaSooW.")
+# Zip the folder (the zip contains the ErwynaSooW folder itself)
+setwd(file.path(old, "submission"))
+unlink("ErwynaSooW.zip")
+utils::zip("ErwynaSooW.zip", "ErwynaSooW", flags = "-r9Xq")
+message("Done. Upload ", file.path(old, "submission", "ErwynaSooW.zip"), " to Moodle.")

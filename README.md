@@ -4,7 +4,26 @@ Repository: https://github.com/Emmapoky/ETW2500-A2 (public, so **never put anyth
 student ID numbers, no personal files). Project name inside RStudio: `ErwynaSooW`.
 Rules for working in the repo are in [CONTRIBUTING.md](CONTRIBUTING.md); the Git steps are in [GIT_GUIDE.md](GIT_GUIDE.md).
 
-Due **Monday 2 November 2026, 11:55 PM**. Group leader: Erwyna Soo Wen Xin. Internal target: submitted by noon.
+Due **Monday 2 November 2026, 11:55 PM**. Group leader: Erwyna Soo Wen Xin. Status: all sections complete and submission ready.
+
+## Quick start: see the finished report (anyone)
+
+1. Pull the latest `main` (GitHub Desktop: Fetch origin, then Pull origin).
+2. Double click `ErwynaSooW.Rproj` to open the project in RStudio.
+3. Open `document/ErwynaSooW.qmd` and click **Render**. The first time, run `install.packages("pacman")` in the console first.
+4. `document/ErwynaSooW.html` opens in the Viewer; click "Show in new window" to read it in your browser.
+
+## Building the Moodle zip (Erwyna only)
+
+In the RStudio console, with the project open:
+
+```r
+source("tools/make_submission.R")
+```
+
+It refuses to run while any TODO marker is left. Otherwise it glues the sections into ONE `ErwynaSooW.qmd`, fills in the
+student IDs from `tools/member_ids.csv` (kept only on Erwyna's computer, never committed), renders the HTML and PDF from a
+clean folder and writes `submission/ErwynaSooW.zip`. Upload that zip to Moodle. The zip has its own README with run steps.
 
 ## How this project is organised
 
