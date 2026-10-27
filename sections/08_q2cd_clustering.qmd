@@ -1,147 +1,97 @@
 # Question 2(c) and 2(d): Clustering the Households {#sec-cluster}
 
-<!--
-INSTRUCTIONS FOR SHRRII (Q2c and Q2d). Delete this whole comment block when your section is final.
-
-Hi Shrrii. This is the heart of the assignment and it is yours. Only edit THIS file (sections/08_q2cd_clustering.qmd).
-
-THE TASK (spec page 5):
-  (c) Justify the method you used AND the number of groups you chose.
-  (d) Describe each group in terms of how its households purchase bath soap.
-
-WHAT YOU START FROM: the object `soap_prep` (600 rows: MemberID plus the six variables, already skew-corrected and
-standardised by my section 07). Cluster THIS. Do not standardise again. `cluster_vars` holds the six names and
-`soap_clean` holds the original values plus demographics (use it to describe groups in real units).
-Run:  source("tools/load_upstream.R"); load_upstream("08_q2cd_clustering")
-
-USE METHODS WE WERE TAUGHT. In the weekly materials the cluster tutorials used dist(), hclust(), cutree(),
-factoextra::fviz_nbclust() (method "wss" for the elbow and "silhouette"), fviz_dend() and dendextend. Open
-01_Weekly_Materials/Week_05/tut_cluster2_completed in the vault to copy the pattern. Marker asks about functions
-from lectures and tutorials, so lean on those first. Check the lecture slides for k-means (kmeans()) if you want it as well.
-
-REQUIRED:
-  1. Choose the method and justify it for THIS data (600 households, 6 continuous standardised variables).
-     State the distance (Euclidean) and, if hierarchical, the linkage and why.
-  2. Choose k with evidence: elbow, silhouette, dendrogram. AND business sense: can a client run a promotion for k groups?
-  3. Describe each group in business words: volume, frequency, promotion use, loyalty. Give each group a name.
-     Use a means table in ORIGINAL units (join soap_clean) so a manager can read it, plus group sizes.
-
-EXTRAS FOR HD:
-  a. Run a SECOND method (hierarchical AND k-means) and compare with a cross table. A one line agreement statement is enough.
-  b. Stability: rerun with other seeds or starts and report if the same groups come back.
-  c. Show several values of k side by side (for example 2 to 6) and say why the runner up lost.
-  e. One paragraph per group: who they are, how they buy, which promotion suits them.
-  f. Under EVERY output a sentence of interpretation. That is where the marks are.
-
-IMPORTANT: the seed is already set once in section 03 (set.seed(55789)). If you run anything random (kmeans), set
-the seed again right above that chunk, so your result repeats exactly.
-
-Remove each TODO(Shrrii) when done. tools/check_todos.R lists what is left.
--->
-
 ## Choosing the method
 
-The clustering that was used is agglomerative hierarchical clustering. It works from the bottom up which means that each household starts as its own cluster and at each step the two most similar clusters will be combined into a bigger cluster until all of the households belong to one cluster. Hierarchical clustering does not need the number of clusters to be specified in advance unlike k-means. Its results can also be visualized as a dendrogram which can aid in deciding the final number of clusters. 
+The clustering method used is **agglomerative hierarchical clustering**. It works from the bottom up: each household starts as its own cluster, and at each step the two most similar clusters are combined into a bigger cluster until all households belong to one cluster. Unlike k-means, hierarchical clustering does not need the number of clusters to be fixed in advance, and its results can be shown as a dendrogram, which helps in deciding the final number of clusters.
 
-The dissimilarity between households is measured using the Euclidean distance which is the most commonly used distance measure. The Euclidean distance needs numeric variables on a similar scale and is sensitive to outliers. These requirements were fulfilled in Section 7 as the six variables were skew-corrected and standardized to ensure that no variable dominates the distance because of its larger range of values. 
+The dissimilarity between households is measured with the **Euclidean distance**, the most commonly used distance measure. Euclidean distance needs numeric variables on a similar scale and is sensitive to outliers. These requirements were met in @sec-prep, where the six variables were skew-corrected and standardised so that no variable dominates the distance because of its larger range of values.
 
-The linkage method used was Ward's minimum variance method which minimizes the total within-cluster variance, merges at each step the pair of clusters with the smallest between-cluster distance and generally produces compact clusters. For agglomerative clustering, complete linkage and Ward's method are often preferred and single linkage was not used as it tends to produce long and loose clusters. 
+The linkage method is **Ward's minimum variance method** [@ward1963]. At each step it merges the pair of clusters whose merger gives the **smallest increase in the total within-cluster sum of squares**, so it tends to produce compact clusters of similar size. For agglomerative clustering, complete linkage and Ward's method are often preferred. Single linkage was not used because it tends to chain households into long, loose clusters.
 
-## Choosing the number of groups
+## Choosing the number of groups {#sec-choose-k}
 
 ```{r}
 #| label: choose-k
-#| eval: true
+#| fig-width: 10
+#| fig-height: 4
 
-# Create the clusters on the 6 variables only (excluding MemberID because it's a label)
+# Cluster on the six variables only (MemberID is a label, not behaviour)
 cluster_data <- soap_prep |> select(all_of(cluster_vars))
 
-# Elbow and silhouette using Hierarchical Clustering with Ward's Linkage
-p_elbow <- fviz_nbclust(cluster_data, FUNcluster = hcut, method = "wss", k.max = 10, hc_method = "ward.D2") +
-            labs(title = "(A) Elbow Method")
+# Elbow and silhouette using hierarchical clustering with Ward's linkage
+p_elbow <- fviz_nbclust(cluster_data, FUNcluster = hcut, method = "wss",
+                        k.max = 10, hc_method = "ward.D2") +
+  labs(title = "(A) Elbow method")
 
-p_silhouette <- fviz_nbclust(cluster_data, FUNcluster = hcut, method = "silhouette", k.max = 10, hc_method = "ward.D2") +
-                labs(title = "(B) Silhouette Method")
+p_silhouette <- fviz_nbclust(cluster_data, FUNcluster = hcut, method = "silhouette",
+                             k.max = 10, hc_method = "ward.D2") +
+  labs(title = "(B) Silhouette method")
 
 p_elbow + p_silhouette
+```
 
-# Hierarchical clustering using Euclidean distance, Ward's linkage
-hc_ward <- cluster_data |> 
-            dist(method = "euclidean") |>
-            hclust(method = "ward.D2")
+```{r}
+#| label: ward-tree
+#| fig-width: 9
+#| fig-height: 4.5
 
-# Deciding which cluster should be used for k_final
-table(cutree(hc_ward, k =2))
-table(cutree(hc_ward, k = 6))
+# Hierarchical clustering: Euclidean distance, Ward's linkage
+distance_ward <- dist(cluster_data, method = "euclidean")
+hc_ward <- hclust(distance_ward, method = "ward.D2")
 
-# Number of clusters selected
+# Number of clusters selected (justified below)
 k_final <- 6
 
-# The dendrogram cut into k_final groups, coloured with the team palatte
-fviz_dend(hc_ward, k = k_final, show_labels = FALSE, k_colors = pal[1:k_final], main = "Dendrogram (Ward's Linkage)")
+# The dendrogram cut into k_final groups, coloured with the team palette
+fviz_dend(hc_ward, k = k_final, show_labels = FALSE, k_colors = pal[1:k_final],
+          main = "Dendrogram (Ward's linkage), cut into six groups")
+```
 
-# Group means on the prepared variables (already standardised in Section 7; 0 = average household)
-cluster_data |>
-mutate(group = cutree(hc_ward, k = k_final)) |>
-group_by(group) |>
-summarise( n = n(), across(everything(), \(x) round(mean(x), 2)))
+```{r}
+#| label: tbl-k-compare
+#| tbl-cap: "Candidate numbers of groups compared: group sizes and average silhouette width."
 
-# Compare k = 2 to 6 group sizes and average silhouette width
-distance_ward <- dist(cluster_data)
-
-# For each  k, cut the Ward tree and record group sizes and average silhouette width
+# For each k, cut the Ward tree and record group sizes and average silhouette width
 k_compare <- tibble(k = 2:6) |>
   mutate(groups = map(k, \(kk) cutree(hc_ward, k = kk)),
          sizes = map_chr(groups, \(g) paste(table(g), collapse = ", ")),
          smallest = map_int(groups, \(g) min(table(g))),
          average_silhouette = map_dbl(groups, \(g) mean(silhouette(g, distance_ward)[, "sil_width"])))
 
-# Table comparing the candidate solutions side by side
 k_compare |>
   select(-groups) |>
   gt() |>
   fmt_number(average_silhouette, decimals = 3) |>
   cols_label(k = "Groups (k)", sizes = "Households per group",
-             smallest = "Smallest group", average_silhouette = "Average silhouette") |>
-  tab_header(title = "Candidate numbers of groups compared")
+             smallest = "Smallest group", average_silhouette = "Average silhouette")
 ```
 
-The elbow and silhouette methods do not agree on a clear number of clusters. The silhouette method suggests that two clusters should be selected since the average silhouette width is at its highest when k is 2 at 0.162 and falls sharply when k is 3. However, six clusters are a close second at 0.158 which is above three, four, and five clusters whose values range between 0.132 and 0.137. All silhouette values are close to 0 which indicates that many households lie near the border between clusters which means the groups overlap rather than being sharply separated. Additionally, the elbow plot does not clearly indicate the number of clusters as the largest drop is from one to two clusters and the curve flattens out after six. 
+```{r}
+#| label: k-values
+#| echo: false
 
-Six clusters were chosen because the clusters need to make sense. The aim of the segmentation is to help XYZ's clients to run several promotions which are each aimed at a different segment and to create reward schemes that build brand loyalty. Six segments is a manageable number of separate campaigns for a client to run across a year. Additionally, each segment needs a different approach as reward schemes best suit loyal households whereas households that buy on promotion respond well to discounts. With two clusters, the Heavy multi-brand shoppers and Promo-6 buyers form one cluster with 249 households and all other households form the second cluster which has 351 households. This combines households that buy very differently such as loyal buyers and light occasional buyers. When compared with five clusters, the sixth cluster comes from splitting the largest group which consists of 176 households into two. The first is 127 loyal households that rarely buy during promotions and the second is 49 loyal households that buy heavily on other promotions. These behave differently and call for different promotions. Choosing more clusters risks creating clusters with very few members but with six clusters the smallest cluster contains 35 households which account for 6% of all the households. The dendrogram cut into six clusters is shown above. 
+sil <- \(kk) sprintf("%.3f", k_compare$average_silhouette[k_compare$k == kk])
+sizes_of <- \(kk) sort(table(cutree(hc_ward, k = kk)), decreasing = TRUE)
+k2 <- sizes_of(2)
+# The group of five that is split in two when moving to six
+split_parent <- max(table(cutree(hc_ward, k = 5)))
+split_kids   <- setdiff(as.integer(table(cutree(hc_ward, k = 6))), as.integer(table(cutree(hc_ward, k = 5))))
+smallest6    <- min(table(cutree(hc_ward, k = 6)))
+```
+
+The elbow and silhouette methods do not agree on a clear number of clusters. The silhouette method favours two clusters, where the average silhouette width peaks at `r sil(2)`, and it falls sharply at three. However, six clusters are a close second at `r sil(6)`, above three, four and five clusters (`r sil(3)`, `r sil(4)` and `r sil(5)`). All silhouette values [@rousseeuw1987] are close to 0, which means many households lie near the border between clusters: the groups overlap rather than being sharply separated. The elbow plot does not give a clear answer either, as the largest drop is from one to two clusters and the curve flattens out after six.
+
+**Six clusters were chosen because the clusters also need to make business sense.** The aim of the segmentation is to help XYZ's clients run several promotions, each aimed at a different segment, and to design reward schemes that build brand loyalty. Six segments is a manageable number of separate campaigns for a client to run across a year, and each segment needs a different approach: reward schemes suit loyal households, while households that buy on promotion respond to discounts. With two clusters, the Heavy multi-brand shoppers and the Promo-6 buyers form one cluster of `r k2[2]` households and everyone else forms a second cluster of `r k2[1]`. That would combine households that buy very differently, such as loyal buyers and light occasional buyers. Moving from five to six clusters splits the largest group of `r split_parent` households into `r max(split_kids)` loyal households that rarely buy on promotion and `r min(split_kids)` loyal households that buy heavily on other promotions. These behave differently and call for different promotions. More clusters would risk very small groups, but with six the smallest still holds `r smallest6` households (`r percent(smallest6 / nrow(soap_prep), accuracy = 1)` of the panel).
 
 ## The final grouping
 
 ```{r}
 #| label: final-clusters
-#| eval: true
 
-# Cut the ward tree into k_final groups
+# Cut the Ward tree into k_final groups
 ward_groups <- cutree(hc_ward, k = k_final)
 
-# Determine the number of households in each group
-table(ward_groups)
-
-# Using k-means with the same number of groups as a second method of comparison only
-km_check <- kmeans(cluster_data, centers = k_final, nstart = 25)
-
-# Creating a cross table to show how the Ward segments line up with k-means groups
-ward_vs_km <- table(Ward = ward_groups, Kmeans = km_check$cluster)
-ward_vs_km
-
-# Overall agreement between Ward and k-means (proportion of households grouped the same way)
-sum(apply(ward_vs_km, 1, max)) / length(ward_groups)
-
-# Repeat the k-means 10 times to check whether the groups stay the same
-stability_runs <- map_dbl(1:10, \(i){
-  km <- kmeans(cluster_data, centers = k_final, nstart = 25)
-  tab <- table(ward_groups, km$cluster)
-  sum(apply(tab, 1, max)) / length(ward_groups)
-})
-
-summary(stability_runs)
-
-# Names chosen from the standardized group means above
+# Names chosen from the standardised group means (see the centroid chart below)
 segment_names <- c("1" = "Mainstream non-loyal buyers",
                    "2" = "Heavy multi-brand shoppers",
                    "3" = "Light occasional buyers",
@@ -149,77 +99,138 @@ segment_names <- c("1" = "Mainstream non-loyal buyers",
                    "5" = "Loyal promotion buyers",
                    "6" = "Promo-6 buyers")
 
-# Each household's cluster and segment name for profiling and PCA
+# Each household's cluster and segment name, used for profiling (2e) and PCA (Q3)
 soap_clusters <- tibble(MemberID = soap_prep$MemberID,
-                        cluster = factor(ward_groups)) |>
-                        mutate(segment = unname(segment_names[as.character(cluster)]))
-
+                        cluster  = factor(ward_groups)) |>
+  mutate(segment = unname(segment_names[as.character(cluster)]))
 ```
 
-Cutting the Ward dendrogram into six clusters gives segments of 35 to 140 households where each segment was given a meaningful label based on its average values on the six variables. Each household's cluster and segment names are stored in soap_clusters so that the clusters can be used in further analysis. 
+Cutting the Ward dendrogram into six clusters gives segments of `r min(table(ward_groups))` to `r max(table(ward_groups))` households. Each segment was given a label based on its average values on the six variables, and each household's cluster and segment name are stored in `soap_clusters` for the rest of the analysis.
 
-To determine whether the segments depend on the clustering method, k-means clustering was also run with six clusters. K-means assigns each household to the cluster with the nearest centroid, then recalculates each centroid as the mean of its cluster and repeats these steps until the cluster assignments stop changing. Since the starting centroids were chosen at random, the results can differ between runs so k-means was run with 25 random starts and the solution with the lowest total within-cluster variation was kept. The seed set in the setup makes the results repeatable. 
+### Does the result depend on the method?
 
-The cross table compares both of the methods. The k-means cluster numbers do not match Ward's, so agreement is read from the largest count in each row. Overall, 66.5% of households are grouped the same way by both methods. The agreement is highest for the Light occasional buyers at 100% and the Promo-6 buyers at 75%. It is slightly lower with 71% for the Loyal promotion buyers, 69% for Loyal regular-price buyers and 64% with regards to Heavy multi-brand shoppers. It is the lowest for the Mainstream non-loyal buyers at 49% whose households are split across several k-means clusters. This moderate agreement is consistent with the low silhouette values seen in Section 8.2 which showed that many households lie close to the border between clusters. Repeating k-means ten times with different random starts gave almost the same agreement each time which ranges from 65.3% to 66.5% so the comparison does not depend on one particular set of starting centroids. 
+To check whether the segments depend on the clustering method, k-means was also run with six clusters. K-means assigns each household to the cluster with the nearest centroid, recalculates each centroid as the mean of its cluster, and repeats until the assignments stop changing. Because the starting centroids are random, k-means was run with 25 random starts, keeping the solution with the lowest total within-cluster variation, and the seed is set right before it so the result repeats exactly.
+
+```{r}
+#| label: tbl-ward-vs-kmeans
+#| tbl-cap: "Cross table of the Ward segments (rows) against the k-means groups (columns)."
+
+set.seed(55789)   # k-means uses random starting centroids
+km_check <- kmeans(cluster_data, centers = k_final, nstart = 25)
+
+ward_vs_km <- table(Ward = ward_groups, Kmeans = km_check$cluster)
+
+# k-means numbers its groups differently, so agreement is read from the largest
+# count in each row: the share of households in their best-matching k-means group
+agreement     <- sum(apply(ward_vs_km, 1, max)) / length(ward_groups)
+row_agreement <- apply(ward_vs_km, 1, max) / rowSums(ward_vs_km)
+
+as.data.frame.matrix(ward_vs_km) |>
+  as_tibble(rownames = "cluster") |>
+  mutate(segment = segment_names[cluster], agreement = row_agreement) |>
+  select(segment, everything(), -cluster) |>
+  gt() |>
+  fmt_percent(agreement, decimals = 0) |>
+  tab_spanner(label = "k-means group", columns = as.character(1:k_final)) |>
+  cols_label(segment = "Ward segment", agreement = "In best-matching group")
+```
+
+```{r}
+#| label: kmeans-stability
+
+# Repeat k-means 10 times with different random starts: does the agreement hold?
+stability_runs <- map_dbl(1:10, \(i) {
+  km  <- kmeans(cluster_data, centers = k_final, nstart = 25)
+  tab <- table(ward_groups, km$cluster)
+  sum(apply(tab, 1, max)) / length(ward_groups)
+})
+range(stability_runs)
+```
+
+```{r}
+#| label: kmeans-values
+#| echo: false
+
+ra <- \(seg) percent(row_agreement[names(segment_names)[segment_names == seg]], accuracy = 1)
+```
+
+Overall, `r percent(agreement, accuracy = 0.1)` of households sit in their best-matching k-means group. Agreement is highest for the Light occasional buyers (`r ra("Light occasional buyers")`) and the Promo-6 buyers (`r ra("Promo-6 buyers")`), followed by the Loyal promotion buyers (`r ra("Loyal promotion buyers")`), the Loyal regular-price buyers (`r ra("Loyal regular-price buyers")`) and the Heavy multi-brand shoppers (`r ra("Heavy multi-brand shoppers")`). It is lowest for the Mainstream non-loyal buyers (`r ra("Mainstream non-loyal buyers")`), whose households are split across several k-means groups. This moderate agreement is consistent with the low silhouette values in @sec-choose-k: many households lie close to the border between clusters, and the "average" segment is the least sharply defined. Repeating k-means ten times with different random starts gave almost the same agreement each time (`r percent(min(stability_runs), accuracy = 0.1)` to `r percent(max(stability_runs), accuracy = 0.1)`), so the comparison does not depend on one particular set of starting centroids.
 
 ## Describing each group (2d)
 
 ```{r}
-#| label: describe-groups
-#| eval: true
+#| label: tbl-segment-means
+#| tbl-cap: "How each segment buys bath soap, in original units, with the all-household average in the last row."
 
-# Attach each household's segment to its original values
-original_segment <- soap_clusters |> 
-                    left_join(soap_clean |> select(MemberID, all_of(cluster_vars)), by = "MemberID")
+# Attach each household's segment to its original (untransformed) values
+original_segment <- soap_clusters |>
+  left_join(soap_clean |> select(MemberID, all_of(cluster_vars)), by = "MemberID")
 
-# Group sizes and means in original units and an all-households row for comparison
+# Group sizes and means, plus an all-households row for comparison
 segment_means <- original_segment |>
-                 group_by(cluster, segment) |>
-                 summarise(households = n(), across(all_of(cluster_vars), mean), .groups = "drop") |>
-                 bind_rows(original_segment |>
-                            summarise(households = n(), across(all_of(cluster_vars), mean)) |>
-                            mutate(segment = "All households"))
+  group_by(cluster, segment) |>
+  summarise(households = n(), across(all_of(cluster_vars), mean), .groups = "drop") |>
+  bind_rows(original_segment |>
+              summarise(households = n(), across(all_of(cluster_vars), mean)) |>
+              mutate(segment = "All households"))
 
-# Average purchase behaviour of each segment in original units with an all-households row for comparison
 segment_means |>
   select(-cluster) |>
   gt() |>
   fmt_number(c(TotalVol, NoTrans, NoBrands), decimals = 1) |>
   fmt_percent(c(PurPromo6, PurOtherPromo, MaxBrShare), decimals = 0) |>
   cols_label(segment = "Segment", households = "Households",
-             TotalVol = "Total Volume", NoTrans = "Transactions",
+             TotalVol = "Total volume", NoTrans = "Transactions",
              PurPromo6 = "Share on promo 6", PurOtherPromo = "Share on other promos",
              NoBrands = "Brands bought", MaxBrShare = "Share to top brand") |>
-  tab_header(title = "How each segment buys bath soap (original units)")
+  tab_style(style = cell_text(weight = "bold"),
+            locations = cells_body(rows = segment == "All households"))
+```
 
-# A centroid chart to show the mean of each prepared variable per segment 
+```{r}
+#| label: fig-centroids
+#| fig-cap: "Segment centroids: the mean of each standardised variable within each segment (0 = the average household)."
+#| fig-width: 9
+#| fig-height: 7
+
 soap_prep |>
   left_join(soap_clusters, by = "MemberID") |>
   group_by(segment) |>
   summarise(across(all_of(cluster_vars), mean)) |>
   pivot_longer(-segment, names_to = "variable", values_to = "mean_z") |>
-  mutate(segment = factor(segment, levels = segment_names),
+  mutate(segment  = factor(segment, levels = segment_names),
          variable = factor(variable, levels = rev(cluster_vars))) |>
-  ggplot(aes(mean_z, variable, fill = mean_z > 0))+
-  geom_col(show.legend = FALSE) + 
-  geom_vline(xintercept = 0, color = "grey40")+
-  facet_wrap(~segment, ncol = 2)+
-  scale_fill_manual(values = c(`TRUE` = pal[1], `FALSE` = pal[4]))+
+  ggplot(aes(mean_z, variable, fill = mean_z > 0)) +
+  geom_col(show.legend = FALSE) +
+  geom_vline(xintercept = 0, colour = "grey40") +
+  facet_wrap(~segment, ncol = 2) +
+  scale_fill_manual(values = c(`TRUE` = pal[1], `FALSE` = pal[4])) +
   labs(title = "Segment centroids on the six purchase variables",
-       x = "Standardized mean (0 = average household)", y = NULL)
+       x = "Standardised mean (0 = average household)", y = NULL)
 ```
-The table above provides each segment's size and average purchase behaviour in original units with the average for all households in the last row for comparison. The largest differences between the segments are in volume, frequency, promotion use and brand loyalty. 
 
-The chart above shows each segment's centroid, the mean of each standardised variable within that segment, so the bars to the right are above the average household and bars to the left are below it. The longest bars highlight each segment's main characteristics which differ from segment to segment. 
+```{r}
+#| label: segment-values
+#| echo: false
 
-The first segment is the Mainstream non-loyal buyers which consists of 140 households and makes up 23% of all households. These households buy close to the average amount of soap which is about 10,400 units over 28 transactions and rarely buy during promotions, with 1% of their volume on promotion 6 and 4% for other promotions. Only 21% of their volume goes to their top named brand which is well below the average of 37%. This indicates that this segment is not loyal to any named brand. Since these households rarely buy on promotion, discounts are unlikely to change their buying habits. 
+# Look-ups for the paragraphs below, so every number comes from the table above
+sm  <- \(seg, col) segment_means[[col]][segment_means$segment == seg]
+avg <- \(col) sm("All households", col)
+n_  <- \(seg) sm(seg, "households")
+p_  <- \(x) percent(x, accuracy = 1)
+v_  <- \(x) comma(x, accuracy = 100)
+```
 
-Next is the Heavy multi-brand shoppers which comprises 132 households and forms 22% of households. This segment buys the most soap in comparison to other segments at approximately 17,100 units which is 43% more than the average household. This segment buys soap the most often with about 51 transactions in comparison to the average of 31. They spread their volume across the most brands about 5 on average compared with 3.6 overall, with only 24% going to their top brand and buy slightly less during promotions compared to the average. Their volume is large yet divided between brands so reward schemes that encourage them to continue buying the same brand would suit this segment. 
+@tbl-segment-means gives each segment's size and average purchase behaviour in original units, with the average for all households in the last row. @fig-centroids shows the same segments on the standardised scale: bars to the right are above the average household and bars to the left are below it, so the longest bars show what makes each segment distinctive.
 
-The Light occasional buyers includes 35 households which account for 6% of households. These households tend to buy very little at about 1,300 units over only 3.5 transactions. This is roughly a ninth of the average volume. They did not buy during promotions and bought fewer brands than any other segment at 1.8 in comparison to the average of 3.6. Considering their small volume, they should be a low priority for promotion spending. 
+**Mainstream non-loyal buyers** (`r n_("Mainstream non-loyal buyers")` households, `r p_(n_("Mainstream non-loyal buyers") / 600)` of the panel). These households buy close to the average amount of soap, about `r v_(sm("Mainstream non-loyal buyers", "TotalVol"))` units over `r round(sm("Mainstream non-loyal buyers", "NoTrans"))` transactions, and rarely buy on promotion (`r p_(sm("Mainstream non-loyal buyers", "PurPromo6"))` of volume on promotion 6 and `r p_(sm("Mainstream non-loyal buyers", "PurOtherPromo"))` on other promotions). Only `r p_(sm("Mainstream non-loyal buyers", "MaxBrShare"))` of their volume goes to their top named brand, well below the average of `r p_(avg("MaxBrShare"))`, so this segment is not loyal to any named brand. Because they rarely buy on promotion, discounts are unlikely to change their habits.
 
-The Loyal regular-price buyers contains 127 households which amount to 21% of households. These households buy slightly more than the average at roughly 12,900 units in fewer transactions at 25 against an average of 31. These households give 66% of their volume to one brand and almost never buy on promotion with 2% of their volume bought on promotion 6 and none for other promotions. Since the Loyal regular-price buyers already buy their favourite brand without discounts, the reward schemes which allow buyers to maintain their loyalty would suit them better than price promotions. 
+**Heavy multi-brand shoppers** (`r n_("Heavy multi-brand shoppers")` households, `r p_(n_("Heavy multi-brand shoppers") / 600)`). This segment buys the most soap, about `r v_(sm("Heavy multi-brand shoppers", "TotalVol"))` units, which is `r p_(sm("Heavy multi-brand shoppers", "TotalVol") / avg("TotalVol") - 1)` more than the average household, and buys most often, with about `r round(sm("Heavy multi-brand shoppers", "NoTrans"))` transactions against an average of `r round(avg("NoTrans"))`. They spread their volume over the most brands (`r round(sm("Heavy multi-brand shoppers", "NoBrands"), 1)` on average against `r round(avg("NoBrands"), 1)` overall) with only `r p_(sm("Heavy multi-brand shoppers", "MaxBrShare"))` going to their top brand. Their volume is large but divided between brands, so reward schemes that encourage them to keep buying the same brand suit this segment.
 
-Then, the Loyal promotion buyers includes 49 households which constitute 8% of households. This segment is the most loyal segment with 77% of volume going to one brand and only 2.7 brands bought on average. They buy an average amount of soap at about 13,000 units; however, 15% of their volume is bought during other promotions which is five times the average of 3%. Seeing that this segment is loyal and also responds to promotions, promotions targeted at their favourite brand suit this segment.  
+**Light occasional buyers** (`r n_("Light occasional buyers")` households, `r p_(n_("Light occasional buyers") / 600)`). These households buy very little, about `r v_(sm("Light occasional buyers", "TotalVol"))` units over only `r round(sm("Light occasional buyers", "NoTrans"), 1)` transactions, roughly a ninth of the average volume. They did not buy on promotion at all and bought the fewest brands (`r round(sm("Light occasional buyers", "NoBrands"), 1)` against `r round(avg("NoBrands"), 1)`). Given their small volume they should be a low priority for promotion spending.
 
-The final segment is the Promo-6 buyers consisting of 117 households which amount to 20% of households. These households tend to buy slightly less than the average at approximately 9,500 units at an average frequency. This segment is the least loyal in comparison to the other segments with only 20% of volume going to their top brand. The Promo-6 buyers bought 4.1 brands on average and 19% of their volume is bought on promotion 6 which is nearly four times the average of 5%. Promotion 6 offers timed at different points in the year best suit this segment. 
+**Loyal regular-price buyers** (`r n_("Loyal regular-price buyers")` households, `r p_(n_("Loyal regular-price buyers") / 600)`). These households buy slightly more than average, about `r v_(sm("Loyal regular-price buyers", "TotalVol"))` units, in fewer transactions (`r round(sm("Loyal regular-price buyers", "NoTrans"))` against `r round(avg("NoTrans"))`). They give `r p_(sm("Loyal regular-price buyers", "MaxBrShare"))` of their volume to one brand and almost never buy on promotion (`r p_(sm("Loyal regular-price buyers", "PurPromo6"))` on promotion 6 and `r p_(sm("Loyal regular-price buyers", "PurOtherPromo"))` on others). Since they already buy their favourite brand without discounts, reward schemes that maintain their loyalty suit them better than price promotions, which would only give away margin.
+
+**Loyal promotion buyers** (`r n_("Loyal promotion buyers")` households, `r p_(n_("Loyal promotion buyers") / 600)`). This is the most loyal segment, with `r p_(sm("Loyal promotion buyers", "MaxBrShare"))` of volume going to one brand and only `r round(sm("Loyal promotion buyers", "NoBrands"), 1)` brands bought on average. They buy an average amount, about `r v_(sm("Loyal promotion buyers", "TotalVol"))` units, but `r p_(sm("Loyal promotion buyers", "PurOtherPromo"))` of their volume is bought on other promotions, about `r round(sm("Loyal promotion buyers", "PurOtherPromo") / avg("PurOtherPromo"), 1)` times the average of `r p_(avg("PurOtherPromo"))`. Because this segment is loyal and also responds to promotions, promotions on their favourite brand suit them.
+
+**Promo-6 buyers** (`r n_("Promo-6 buyers")` households, `r p_(n_("Promo-6 buyers") / 600)`). These households buy slightly less than average, about `r v_(sm("Promo-6 buyers", "TotalVol"))` units, at an average frequency. They are among the least loyal, with only `r p_(sm("Promo-6 buyers", "MaxBrShare"))` of volume going to their top brand across `r round(sm("Promo-6 buyers", "NoBrands"), 1)` brands, and `r p_(sm("Promo-6 buyers", "PurPromo6"))` of their volume is bought on promotion 6, about `r round(sm("Promo-6 buyers", "PurPromo6") / avg("PurPromo6"), 1)` times the average of `r p_(avg("PurPromo6"))`. Promotion 6 offers timed at different points of the year suit this segment best.
