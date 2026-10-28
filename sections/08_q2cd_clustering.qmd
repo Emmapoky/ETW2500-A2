@@ -6,12 +6,13 @@ The clustering method used is **agglomerative hierarchical clustering**. It work
 
 The dissimilarity between households is measured with the **Euclidean distance**, the most commonly used distance measure. Euclidean distance needs numeric variables on a similar scale and is sensitive to outliers. These requirements were met in @sec-prep, where the six variables were skew-corrected and standardised so that no variable dominates the distance because of its larger range of values.
 
-The linkage method is **Ward's minimum variance method** [@ward1963]. At each step it merges the pair of clusters whose merger gives the **smallest increase in the total within-cluster sum of squares**, so it tends to produce compact clusters of similar size. For agglomerative clustering, complete linkage and Ward's method are often preferred. Single linkage was not used because it tends to chain households into long, loose clusters.
+The linkage method is **Ward's minimum variance method** [@ward1963]. At each step it merges the pair of clusters whose merger gives the **smallest increase in the total within-cluster sum of squares**, so it tends to produce compact clusters of similar size. Single linkage was not used because it tends to chain households into long, loose clusters. Complete and average linkage were both run as a check, and @sec-robust shows why Ward's method was kept: on these data the other two leave very small or very uneven groups.
 
 ## Choosing the number of groups {#sec-choose-k}
 
 ```{r}
-#| label: choose-k
+#| label: fig-choose-k
+#| fig-cap: "Choosing the number of groups with Ward's linkage: (A) total within-cluster sum of squares and (B) average silhouette width, for 1 to 10 groups."
 #| fig-width: 10
 #| fig-height: 4
 
@@ -23,7 +24,8 @@ p_elbow <- fviz_nbclust(cluster_data, FUNcluster = hcut, method = "wss",
                         k.max = 10, hc_method = "ward.D2") +
   labs(title = "(A) Elbow method")
 
-p_silhouette <- fviz_nbclust(cluster_data, FUNcluster = hcut, method = "silhouette",
+p_silhouette <- fviz_nbclust(cluster_data, FUNcluster = hcut,
+                             method = "silhouette",
                              k.max = 10, hc_method = "ward.D2") +
   labs(title = "(B) Silhouette method")
 
@@ -31,7 +33,8 @@ p_elbow + p_silhouette
 ```
 
 ```{r}
-#| label: ward-tree
+#| label: fig-ward-tree
+#| fig-cap: "Dendrogram of all households (Ward's linkage), cut into six groups."
 #| fig-width: 9
 #| fig-height: 4.5
 
@@ -44,42 +47,50 @@ k_final <- 6
 
 # The dendrogram cut into k_final groups, coloured with the team palette
 fviz_dend(hc_ward, k = k_final, show_labels = FALSE, k_colors = pal[1:k_final],
-          main = "Dendrogram (Ward's linkage), cut into six groups")
+          main = NULL)
 ```
 
 ```{r}
 #| label: tbl-k-compare
-#| tbl-cap: "Candidate numbers of groups compared: group sizes and average silhouette width."
+#| tbl-cap: "Candidate numbers of groups (2 to 10) compared: group sizes and average silhouette width."
 
-# For each k, cut the Ward tree and record group sizes and average silhouette width
-k_compare <- tibble(k = 2:6) |>
+# For each k, cut the Ward tree and record group sizes and average silhouette
+# width
+k_compare <- tibble(k = 2:10) |>
   mutate(groups = map(k, \(kk) cutree(hc_ward, k = kk)),
          sizes = map_chr(groups, \(g) paste(table(g), collapse = ", ")),
          smallest = map_int(groups, \(g) min(table(g))),
-         average_silhouette = map_dbl(groups, \(g) mean(silhouette(g, distance_ward)[, "sil_width"])))
+         average_silhouette = map_dbl(groups, \(g) {
+           mean(silhouette(g, distance_ward)[, "sil_width"])
+         }))
 
 k_compare |>
   select(-groups) |>
   gt() |>
   fmt_number(average_silhouette, decimals = 3) |>
   cols_label(k = "Groups (k)", sizes = "Households per group",
-             smallest = "Smallest group", average_silhouette = "Average silhouette")
+             smallest = "Smallest group",
+             average_silhouette = "Average silhouette")
 ```
 
 ```{r}
 #| label: k-values
-#| echo: false
 
-sil <- \(kk) sprintf("%.3f", k_compare$average_silhouette[k_compare$k == kk])
+sil_at <- \(kk) sprintf("%.3f", k_compare$average_silhouette[k_compare$k == kk])
+# Best k once the two-group split is set aside, and the range for 7 to 10
+best_k_3up <- k_compare |> filter(k >= 3) |> slice_max(average_silhouette) |>
+  pull(k)
+sil_7_10   <- range(k_compare$average_silhouette[k_compare$k >= 7])
 sizes_of <- \(kk) sort(table(cutree(hc_ward, k = kk)), decreasing = TRUE)
 k2 <- sizes_of(2)
 # The group of five that is split in two when moving to six
 split_parent <- max(table(cutree(hc_ward, k = 5)))
-split_kids   <- setdiff(as.integer(table(cutree(hc_ward, k = 6))), as.integer(table(cutree(hc_ward, k = 5))))
+split_kids   <- setdiff(as.integer(table(cutree(hc_ward, k = 6))),
+                        as.integer(table(cutree(hc_ward, k = 5))))
 smallest6    <- min(table(cutree(hc_ward, k = 6)))
 ```
 
-The elbow and silhouette methods do not agree on a clear number of clusters. The silhouette method favours two clusters, where the average silhouette width peaks at `r sil(2)`, and it falls sharply at three. However, six clusters are a close second at `r sil(6)`, above three, four and five clusters (`r sil(3)`, `r sil(4)` and `r sil(5)`). All silhouette values [@rousseeuw1987] are close to 0, which means many households lie near the border between clusters: the groups overlap rather than being sharply separated. The elbow plot does not give a clear answer either, as the largest drop is from one to two clusters and the curve flattens out after six.
+@fig-choose-k shows the elbow and silhouette plots, @fig-ward-tree the dendrogram and @tbl-k-compare the group sizes for each candidate. The elbow and silhouette methods do not agree on a clear number of clusters. The silhouette method favours two clusters, where the average silhouette width peaks at `r sil_at(2)`, and it falls sharply at three. However, six clusters are a close second at `r sil_at(6)`, above three, four and five clusters (`r sil_at(3)`, `r sil_at(4)` and `r sil_at(5)`) and above every choice from seven to ten (`r sprintf("%.3f", sil_7_10[1])` to `r sprintf("%.3f", sil_7_10[2])`). Once two groups are set aside, the best number on the silhouette from three to ten is `r best_k_3up`. All silhouette values [@rousseeuw1987] are close to 0, which means many households lie near the border between clusters: the groups overlap rather than being sharply separated. The elbow plot does not give a clear answer either, as the largest drop is from one to two clusters and the curve flattens out after six.
 
 **Six clusters were chosen because the clusters also need to make business sense.** The aim of the segmentation is to help XYZ's clients run several promotions, each aimed at a different segment, and to design reward schemes that build brand loyalty. Six segments is a manageable number of separate campaigns for a client to run across a year, and each segment needs a different approach: reward schemes suit loyal households, while households that buy on promotion respond to discounts. With two clusters, the Heavy multi-brand shoppers and the Promo-6 buyers form one cluster of `r k2[2]` households and everyone else forms a second cluster of `r k2[1]`. That would combine households that buy very differently, such as loyal buyers and light occasional buyers. Moving from five to six clusters splits the largest group of `r split_parent` households into `r max(split_kids)` loyal households that rarely buy on promotion and `r min(split_kids)` loyal households that buy heavily on other promotions. These behave differently and call for different promotions. More clusters would risk very small groups, but with six the smallest still holds `r smallest6` households (`r percent(smallest6 / nrow(soap_prep), accuracy = 1)` of the panel).
 
@@ -92,14 +103,15 @@ The elbow and silhouette methods do not agree on a clear number of clusters. The
 ward_groups <- cutree(hc_ward, k = k_final)
 
 # Names chosen from the standardised group means (see the centroid chart below)
-segment_names <- c("1" = "Mainstream non-loyal buyers",
+segment_names <- c("1" = "Small-brand regular-price buyers",
                    "2" = "Heavy multi-brand shoppers",
                    "3" = "Light occasional buyers",
                    "4" = "Loyal regular-price buyers",
                    "5" = "Loyal promotion buyers",
                    "6" = "Promo-6 buyers")
 
-# Each household's cluster and segment name, used for profiling (2e) and PCA (Q3)
+# Each household's cluster and segment name, used for profiling (2e) and PCA
+# (Q3)
 soap_clusters <- tibble(MemberID = soap_prep$MemberID,
                         cluster  = factor(ward_groups)) |>
   mutate(segment = unname(segment_names[as.character(cluster)]))
@@ -121,7 +133,8 @@ km_check <- kmeans(cluster_data, centers = k_final, nstart = 25)
 ward_vs_km <- table(Ward = ward_groups, Kmeans = km_check$cluster)
 
 # k-means numbers its groups differently, so agreement is read from the largest
-# count in each row: the share of households in their best-matching k-means group
+# count in each row: the share of households in their best-matching k-means
+# group
 agreement     <- sum(apply(ward_vs_km, 1, max)) / length(ward_groups)
 row_agreement <- apply(ward_vs_km, 1, max) / rowSums(ward_vs_km)
 
@@ -144,17 +157,95 @@ stability_runs <- map_dbl(1:10, \(i) {
   tab <- table(ward_groups, km$cluster)
   sum(apply(tab, 1, max)) / length(ward_groups)
 })
-range(stability_runs)
 ```
 
 ```{r}
 #| label: kmeans-values
-#| echo: false
 
-ra <- \(seg) percent(row_agreement[names(segment_names)[segment_names == seg]], accuracy = 1)
+# Share of a segment's households in its best-matching k-means group, as text
+row_agree_text <- \(seg) {
+  percent(row_agreement[names(segment_names)[segment_names == seg]],
+          accuracy = 1)
+}
 ```
 
-Overall, `r percent(agreement, accuracy = 0.1)` of households sit in their best-matching k-means group. Agreement is highest for the Light occasional buyers (`r ra("Light occasional buyers")`) and the Promo-6 buyers (`r ra("Promo-6 buyers")`), followed by the Loyal promotion buyers (`r ra("Loyal promotion buyers")`), the Loyal regular-price buyers (`r ra("Loyal regular-price buyers")`) and the Heavy multi-brand shoppers (`r ra("Heavy multi-brand shoppers")`). It is lowest for the Mainstream non-loyal buyers (`r ra("Mainstream non-loyal buyers")`), whose households are split across several k-means groups. This moderate agreement is consistent with the low silhouette values in @sec-choose-k: many households lie close to the border between clusters, and the "average" segment is the least sharply defined. Repeating k-means ten times with different random starts gave almost the same agreement each time (`r percent(min(stability_runs), accuracy = 0.1)` to `r percent(max(stability_runs), accuracy = 0.1)`), so the comparison does not depend on one particular set of starting centroids.
+@tbl-ward-vs-kmeans cross-tabulates the two solutions. Overall, `r percent(agreement, accuracy = 0.1)` of households sit in their best-matching k-means group. Agreement is highest for the Light occasional buyers (`r row_agree_text("Light occasional buyers")`) and the Promo-6 buyers (`r row_agree_text("Promo-6 buyers")`), followed by the Loyal promotion buyers (`r row_agree_text("Loyal promotion buyers")`), the Loyal regular-price buyers (`r row_agree_text("Loyal regular-price buyers")`) and the Heavy multi-brand shoppers (`r row_agree_text("Heavy multi-brand shoppers")`). It is lowest for the Small-brand regular-price buyers (`r row_agree_text("Small-brand regular-price buyers")`), whose households are split across several k-means groups. This moderate agreement is consistent with the low silhouette values in @sec-choose-k: many households lie close to the border between clusters, and the Small-brand regular-price segment is the least sharply defined. Repeating k-means ten times with different random starts gave almost the same agreement each time (`r percent(min(stability_runs), accuracy = 0.1)` to `r percent(max(stability_runs), accuracy = 0.1)`), so the comparison does not depend on one particular set of starting centroids.
+
+### How stable are the six segments? {#sec-robust}
+
+The best-match share above flatters the agreement, because each segment is matched to whichever k-means group suits it best. Further checks test the six segments more strictly. The **adjusted Rand index** (ARI) [@hubert1985] compares two groupings pair by pair: it is the share of household pairs that both groupings put together or both put apart, corrected so that 0 is the agreement expected by chance and 1 means identical groupings. It is computed with `mclust` [@scrucca2016mclust].
+
+```{r}
+#| label: tbl-robust
+#| tbl-cap: "Stability checks on the six Ward segments."
+
+# (a) best k from 3 to 10 on the silhouette (k = 2 is ruled out above)
+best_sil <- k_compare$average_silhouette[k_compare$k == best_k_3up]
+
+# (b) the same distances cut into six groups with two other linkages
+linkage_sizes <- map(c(Ward = "ward.D2", Complete = "complete",
+                       Average = "average"),
+                     \(m) sort(table(cutree(hclust(distance_ward, method = m),
+                                              k = k_final)), decreasing = TRUE))
+
+# (c) ARI between the Ward segments and k-means
+ari_kmeans <- mclust::adjustedRandIndex(ward_groups, km_check$cluster)
+
+# (d) drop households with any |z| > 3, recluster, compare on those left
+keep_hh     <- rowSums(abs(cluster_data) > 3) == 0
+ward_trim   <- cutree(hclust(dist(cluster_data[keep_hh, ]), method = "ward.D2"),
+                      k = k_final)
+ari_trimmed <- mclust::adjustedRandIndex(ward_groups[keep_hh], ward_trim)
+
+# (e) average silhouette width within each segment
+sil_ward   <- silhouette(ward_groups, distance_ward)
+sil_seg_of <- unname(segment_names[as.character(sil_ward[, "cluster"])])
+sil_by_seg <- tibble(segment = sil_seg_of, width = sil_ward[, "sil_width"]) |>
+  summarise(width = mean(width), .by = segment) |>
+  arrange(desc(width))
+
+robust_tbl <- bind_rows(
+  tibble(group  = "Number of groups",
+         check  = "Best k from 3 to 10 (average silhouette)",
+         result = paste0("k = ", best_k_3up, " (", sprintf("%.3f", best_sil),
+                         ")")),
+  tibble(group  = "Linkage method (sizes at k = 6)",
+         check  = names(linkage_sizes),
+         result = map_chr(linkage_sizes, \(x) paste(x, collapse = ", "))),
+  tibble(group  = "Agreement (adjusted Rand index)",
+         check  = c("Ward against k-means, all households",
+                    paste0("Ward against Ward without the ", sum(!keep_hh),
+                           " extreme households (n = ", sum(keep_hh), ")")),
+         result = sprintf("%.3f", c(ari_kmeans, ari_trimmed))),
+  tibble(group  = "Average silhouette width by segment",
+         check  = sil_by_seg$segment,
+         result = sprintf("%.3f", sil_by_seg$width))
+)
+
+robust_tbl |>
+  gt(groupname_col = "group") |>
+  cols_label(check = "Check", result = "Result")
+```
+
+```{r}
+#| label: robust-values
+
+# Look-ups for the paragraph below
+complete_min <- min(linkage_sizes$Complete)
+average_max  <- max(linkage_sizes$Average)
+sil_weakest  <- slice_min(sil_by_seg, width)
+sil_strongest <- slice_max(sil_by_seg, width)
+```
+
+@tbl-robust gives the results.
+
+- **Six is the best number of groups once two is set aside.** From three to ten groups the average silhouette is highest at `r best_k_3up`.
+- **Ward's linkage is the only one of the three that gives usable segments.** On the same distances, complete linkage leaves a group of only `r complete_min` household`r if (complete_min == 1) "" else "s"` and average linkage puts `r average_max` of the `r nrow(cluster_data)` households in one group. Neither could be turned into six campaigns.
+- **Agreement with k-means is moderate.** The ARI is `r sprintf("%.3f", ari_kmeans)`, so k-means finds a similar structure but moves many households between neighbouring groups. This is a stricter and less flattering figure than the `r percent(agreement, accuracy = 0.1)` best-match share.
+- **Most of the structure holds without the extreme households.** Removing the `r sum(!keep_hh)` households with a standardised value beyond 3 (@sec-prep) and clustering the other `r sum(keep_hh)` again gives an ARI of `r sprintf("%.3f", ari_trimmed)` with the original segments. Most of the structure survives, although some households change group.
+- **Some segments are much sharper than others.** The average silhouette width runs from `r sprintf("%.3f", sil_strongest$width)` for the `r sil_strongest$segment` to `r sprintf("%.3f", sil_weakest$width)` for the `r sil_weakest$segment`. The first is a clearly separate group, while the second sits close to its neighbours, which matches its low k-means agreement above.
+
+So the six segments have real cores, but their borders are not sharp, and the weakest segments should be read as tendencies rather than fixed types.
 
 ## Describing each group (2d)
 
@@ -164,12 +255,14 @@ Overall, `r percent(agreement, accuracy = 0.1)` of households sit in their best-
 
 # Attach each household's segment to its original (untransformed) values
 original_segment <- soap_clusters |>
-  left_join(soap_clean |> select(MemberID, all_of(cluster_vars)), by = "MemberID")
+  left_join(soap_clean |> select(MemberID, all_of(cluster_vars)),
+            by = "MemberID")
 
 # Group sizes and means, plus an all-households row for comparison
 segment_means <- original_segment |>
   group_by(cluster, segment) |>
-  summarise(households = n(), across(all_of(cluster_vars), mean), .groups = "drop") |>
+  summarise(households = n(), across(all_of(cluster_vars), mean),
+            .groups = "drop") |>
   bind_rows(original_segment |>
               summarise(households = n(), across(all_of(cluster_vars), mean)) |>
               mutate(segment = "All households"))
@@ -181,7 +274,8 @@ segment_means |>
   fmt_percent(c(PurPromo6, PurOtherPromo, MaxBrShare), decimals = 0) |>
   cols_label(segment = "Segment", households = "Households",
              TotalVol = "Total volume", NoTrans = "Transactions",
-             PurPromo6 = "Share on promo 6", PurOtherPromo = "Share on other promos",
+             PurPromo6 = "Share on promo 6",
+             PurOtherPromo = "Share on other promos",
              NoBrands = "Brands bought", MaxBrShare = "Share to top brand") |>
   tab_style(style = cell_text(weight = "bold"),
             locations = cells_body(rows = segment == "All households"))
@@ -211,26 +305,37 @@ soap_prep |>
 
 ```{r}
 #| label: segment-values
-#| echo: false
 
 # Look-ups for the paragraphs below, so every number comes from the table above
-sm  <- \(seg, col) segment_means[[col]][segment_means$segment == seg]
-avg <- \(col) sm("All households", col)
-n_  <- \(seg) sm(seg, "households")
-p_  <- \(x) percent(x, accuracy = 1)
-v_  <- \(x) comma(x, accuracy = 100)
+seg_mean <- \(seg, col) segment_means[[col]][segment_means$segment == seg]
+all_mean <- \(col) seg_mean("All households", col)
+seg_size <- \(seg) seg_mean(seg, "households")
+fmt_pct  <- \(x) percent(x, accuracy = 1)
+fmt_vol  <- \(x) comma(x, accuracy = 100)
+n_hh     <- nrow(soap_prep)
+
+# BrOthers was not clustered on, so it is only used to profile the segments
+brothers_seg <- soap_clusters |>
+  left_join(select(soap, MemberID, BrOthers, MaxBrShare), by = "MemberID") |>
+  summarise(brothers = mean(BrOthers), zero_max = sum(near(MaxBrShare, 0)),
+            .by = segment)
+brothers_of <- \(seg) brothers_seg$brothers[brothers_seg$segment == seg]
+zero_of     <- \(seg) brothers_seg$zero_max[brothers_seg$segment == seg]
+zero_segs   <- brothers_seg |> filter(zero_max > 0) |> arrange(desc(zero_max))
 ```
 
 @tbl-segment-means gives each segment's size and average purchase behaviour in original units, with the average for all households in the last row. @fig-centroids shows the same segments on the standardised scale: bars to the right are above the average household and bars to the left are below it, so the longest bars show what makes each segment distinctive.
 
-**Mainstream non-loyal buyers** (`r n_("Mainstream non-loyal buyers")` households, `r p_(n_("Mainstream non-loyal buyers") / 600)` of the panel). These households buy close to the average amount of soap, about `r v_(sm("Mainstream non-loyal buyers", "TotalVol"))` units over `r round(sm("Mainstream non-loyal buyers", "NoTrans"))` transactions, and rarely buy on promotion (`r p_(sm("Mainstream non-loyal buyers", "PurPromo6"))` of volume on promotion 6 and `r p_(sm("Mainstream non-loyal buyers", "PurOtherPromo"))` on other promotions). Only `r p_(sm("Mainstream non-loyal buyers", "MaxBrShare"))` of their volume goes to their top named brand, well below the average of `r p_(avg("MaxBrShare"))`, so this segment is not loyal to any named brand. Because they rarely buy on promotion, discounts are unlikely to change their habits.
+**Small-brand regular-price buyers** (`r seg_size("Small-brand regular-price buyers")` households, `r fmt_pct(seg_size("Small-brand regular-price buyers") / n_hh)` of the panel). These households buy close to the average amount of soap, about `r fmt_vol(seg_mean("Small-brand regular-price buyers", "TotalVol"))` units over `r round(seg_mean("Small-brand regular-price buyers", "NoTrans"))` transactions, and rarely buy on promotion (`r fmt_pct(seg_mean("Small-brand regular-price buyers", "PurPromo6"))` of volume on promotion 6 and `r fmt_pct(seg_mean("Small-brand regular-price buyers", "PurOtherPromo"))` on other promotions). Only `r fmt_pct(seg_mean("Small-brand regular-price buyers", "MaxBrShare"))` of their volume goes to their top named brand, well below the average of `r fmt_pct(all_mean("MaxBrShare"))`, so the eight named brands win little of their spending. Instead, `r fmt_pct(brothers_of("Small-brand regular-price buyers"))` of their volume goes to `BrOthers`, the brands outside the eight named, the highest of any segment. `BrOthers` was not a clustering variable, so this is a profiling observation. It is not evidence of loyalty either, because `BrOthers` pools many small brands and cannot show whether a household stays with one of them. Because they rarely buy on promotion, discounts are unlikely to change their habits.
 
-**Heavy multi-brand shoppers** (`r n_("Heavy multi-brand shoppers")` households, `r p_(n_("Heavy multi-brand shoppers") / 600)`). This segment buys the most soap, about `r v_(sm("Heavy multi-brand shoppers", "TotalVol"))` units, which is `r p_(sm("Heavy multi-brand shoppers", "TotalVol") / avg("TotalVol") - 1)` more than the average household, and buys most often, with about `r round(sm("Heavy multi-brand shoppers", "NoTrans"))` transactions against an average of `r round(avg("NoTrans"))`. They spread their volume over the most brands (`r round(sm("Heavy multi-brand shoppers", "NoBrands"), 1)` on average against `r round(avg("NoBrands"), 1)` overall) with only `r p_(sm("Heavy multi-brand shoppers", "MaxBrShare"))` going to their top brand. Their volume is large but divided between brands, so reward schemes that encourage them to keep buying the same brand suit this segment.
+**Heavy multi-brand shoppers** (`r seg_size("Heavy multi-brand shoppers")` households, `r fmt_pct(seg_size("Heavy multi-brand shoppers") / n_hh)`). This segment buys the most soap, about `r fmt_vol(seg_mean("Heavy multi-brand shoppers", "TotalVol"))` units, which is `r fmt_pct(seg_mean("Heavy multi-brand shoppers", "TotalVol") / all_mean("TotalVol") - 1)` more than the average household, and buys most often, with about `r round(seg_mean("Heavy multi-brand shoppers", "NoTrans"))` transactions against an average of `r round(all_mean("NoTrans"))`. They spread their volume over the most brands (`r round(seg_mean("Heavy multi-brand shoppers", "NoBrands"), 1)` on average against `r round(all_mean("NoBrands"), 1)` overall) with only `r fmt_pct(seg_mean("Heavy multi-brand shoppers", "MaxBrShare"))` going to their top brand. Their volume is large but divided between brands, so reward schemes that encourage them to keep buying the same brand suit this segment.
 
-**Light occasional buyers** (`r n_("Light occasional buyers")` households, `r p_(n_("Light occasional buyers") / 600)`). These households buy very little, about `r v_(sm("Light occasional buyers", "TotalVol"))` units over only `r round(sm("Light occasional buyers", "NoTrans"), 1)` transactions, roughly a ninth of the average volume. They did not buy on promotion at all and bought the fewest brands (`r round(sm("Light occasional buyers", "NoBrands"), 1)` against `r round(avg("NoBrands"), 1)`). Given their small volume they should be a low priority for promotion spending.
+**Light occasional buyers** (`r seg_size("Light occasional buyers")` households, `r fmt_pct(seg_size("Light occasional buyers") / n_hh)`). These households buy very little, about `r fmt_vol(seg_mean("Light occasional buyers", "TotalVol"))` units over only `r round(seg_mean("Light occasional buyers", "NoTrans"), 1)` transactions, only `r fmt_pct(seg_mean("Light occasional buyers", "TotalVol") / all_mean("TotalVol"))` of the average volume. They did not buy on promotion at all and bought the fewest brands (`r round(seg_mean("Light occasional buyers", "NoBrands"), 1)` against `r round(all_mean("NoBrands"), 1)`). Given their small volume they should be a low priority for promotion spending.
 
-**Loyal regular-price buyers** (`r n_("Loyal regular-price buyers")` households, `r p_(n_("Loyal regular-price buyers") / 600)`). These households buy slightly more than average, about `r v_(sm("Loyal regular-price buyers", "TotalVol"))` units, in fewer transactions (`r round(sm("Loyal regular-price buyers", "NoTrans"))` against `r round(avg("NoTrans"))`). They give `r p_(sm("Loyal regular-price buyers", "MaxBrShare"))` of their volume to one brand and almost never buy on promotion (`r p_(sm("Loyal regular-price buyers", "PurPromo6"))` on promotion 6 and `r p_(sm("Loyal regular-price buyers", "PurOtherPromo"))` on others). Since they already buy their favourite brand without discounts, reward schemes that maintain their loyalty suit them better than price promotions, which would only give away margin.
+**Loyal regular-price buyers** (`r seg_size("Loyal regular-price buyers")` households, `r fmt_pct(seg_size("Loyal regular-price buyers") / n_hh)`). These households buy slightly more than average, about `r fmt_vol(seg_mean("Loyal regular-price buyers", "TotalVol"))` units, in fewer transactions (`r round(seg_mean("Loyal regular-price buyers", "NoTrans"))` against `r round(all_mean("NoTrans"))`). They give `r fmt_pct(seg_mean("Loyal regular-price buyers", "MaxBrShare"))` of their volume to one brand and almost never buy on promotion (`r fmt_pct(seg_mean("Loyal regular-price buyers", "PurPromo6"))` on promotion 6 and `r fmt_pct(seg_mean("Loyal regular-price buyers", "PurOtherPromo"))` on others). Since they already buy their favourite brand without discounts, reward schemes that maintain their loyalty suit them better than price promotions, which would only give away margin.
 
-**Loyal promotion buyers** (`r n_("Loyal promotion buyers")` households, `r p_(n_("Loyal promotion buyers") / 600)`). This is the most loyal segment, with `r p_(sm("Loyal promotion buyers", "MaxBrShare"))` of volume going to one brand and only `r round(sm("Loyal promotion buyers", "NoBrands"), 1)` brands bought on average. They buy an average amount, about `r v_(sm("Loyal promotion buyers", "TotalVol"))` units, but `r p_(sm("Loyal promotion buyers", "PurOtherPromo"))` of their volume is bought on other promotions, about `r round(sm("Loyal promotion buyers", "PurOtherPromo") / avg("PurOtherPromo"), 1)` times the average of `r p_(avg("PurOtherPromo"))`. Because this segment is loyal and also responds to promotions, promotions on their favourite brand suit them.
+**Loyal promotion buyers** (`r seg_size("Loyal promotion buyers")` households, `r fmt_pct(seg_size("Loyal promotion buyers") / n_hh)`). This is the most loyal segment, with `r fmt_pct(seg_mean("Loyal promotion buyers", "MaxBrShare"))` of volume going to one brand and only `r round(seg_mean("Loyal promotion buyers", "NoBrands"), 1)` brands bought on average. They buy an average amount, about `r fmt_vol(seg_mean("Loyal promotion buyers", "TotalVol"))` units, but `r fmt_pct(seg_mean("Loyal promotion buyers", "PurOtherPromo"))` of their volume is bought on other promotions, about `r round(seg_mean("Loyal promotion buyers", "PurOtherPromo") / all_mean("PurOtherPromo"), 1)` times the average of `r fmt_pct(all_mean("PurOtherPromo"))`. Because this segment is loyal and also responds to promotions, promotions on their favourite brand suit them.
 
-**Promo-6 buyers** (`r n_("Promo-6 buyers")` households, `r p_(n_("Promo-6 buyers") / 600)`). These households buy slightly less than average, about `r v_(sm("Promo-6 buyers", "TotalVol"))` units, at an average frequency. They are among the least loyal, with only `r p_(sm("Promo-6 buyers", "MaxBrShare"))` of volume going to their top brand across `r round(sm("Promo-6 buyers", "NoBrands"), 1)` brands, and `r p_(sm("Promo-6 buyers", "PurPromo6"))` of their volume is bought on promotion 6, about `r round(sm("Promo-6 buyers", "PurPromo6") / avg("PurPromo6"), 1)` times the average of `r p_(avg("PurPromo6"))`. Promotion 6 offers timed at different points of the year suit this segment best.
+**Promo-6 buyers** (`r seg_size("Promo-6 buyers")` households, `r fmt_pct(seg_size("Promo-6 buyers") / n_hh)`). These households buy slightly less than average, about `r fmt_vol(seg_mean("Promo-6 buyers", "TotalVol"))` units, at an average frequency. They are among the least loyal, with only `r fmt_pct(seg_mean("Promo-6 buyers", "MaxBrShare"))` of volume going to their top brand across `r round(seg_mean("Promo-6 buyers", "NoBrands"), 1)` brands, and `r fmt_pct(seg_mean("Promo-6 buyers", "PurPromo6"))` of their volume is bought on promotion 6, about `r round(seg_mean("Promo-6 buyers", "PurPromo6") / all_mean("PurPromo6"), 1)` times the average of `r fmt_pct(all_mean("PurPromo6"))`. Their low `MaxBrShare` is partly a small-brand effect too, since `r fmt_pct(brothers_of("Promo-6 buyers"))` of their volume goes to `BrOthers`. Promotion 6 offers timed at different points of the year suit this segment best.
+
+**Where the `MaxBrShare` = 0 households went.** Question 1 showed that the `r nrow(zero_hh)` households with `MaxBrShare` = 0 buy only one brand, which sits inside `BrOthers`. They are not spread evenly: `r paste0(zero_segs$zero_max, if_else(zero_segs$zero_max == 1, " is", " are"), " in the ", zero_segs$segment, collapse = ", ")`. On `MaxBrShare` they look like the least loyal households, so the clustering places most of them in low-concentration segments even though each one is fully loyal to a small brand. This is the limit that Question 1 item 7 warned about, and it is one more reason the low `MaxBrShare` of the Small-brand regular-price and Promo-6 buyers should not be read as plain disloyalty.

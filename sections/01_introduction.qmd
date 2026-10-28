@@ -3,11 +3,11 @@
 ::: {.callout-tip appearance="simple" icon="false"}
 ## Executive summary
 
-- **Six behavioural segments.** Ward's hierarchical clustering on six purchase variables (volume, frequency, two promotion shares, number of brands and `MaxBrShare`) splits the 600 households into Mainstream non-loyal buyers (140), Heavy multi-brand shoppers (132), Loyal regular-price buyers (127), Promo-6 buyers (117), Loyal promotion buyers (49) and Light occasional buyers (35).
+- **Six behavioural segments.** Ward's hierarchical clustering on six purchase variables (volume, frequency, two promotion shares, number of brands and `MaxBrShare`) splits the households into Small-brand regular-price buyers, Heavy multi-brand shoppers, Loyal regular-price buyers, Promo-6 buyers, Loyal promotion buyers and Light occasional buyers (sizes in @tbl-segment-means).
 - **Loyalty is measured as concentration, not brand.** Raw brand shares would group households by *which* brand they buy; the single variable `MaxBrShare` measures *how concentrated* their buying is, which is what loyalty means (Question 1).
-- **Three dimensions explain the segments.** PCA keeps three components (74% of the variation): shopping activity and brand variety, loyal bulk buying against promotion 6, and response to other promotions. Segment membership explains between 42% and 62% of each.
+- **Three dimensions name the segments.** PCA keeps three components (@tbl-pca-variance): shopping activity and brand variety, loyal bulk buying against promotion 6, and response to other promotions. The segments line up with these dimensions (@tbl-pca-segments), which agrees with the clustering but is not independent proof, since both use the same six variables.
 - **Demographics barely separate the segments.** Socioeconomic class and household size differ only slightly and age not at all, so clients should target these segments with purchase data, using demographics only to fine-tune.
-- **One approach per segment.** Rewards without discounts for the Loyal regular-price buyers, own-brand price promotions for the Loyal promotion buyers, brand-tied multi-packs for the Heavy multi-brand shoppers, well-timed promotion 6 offers for the Promo-6 buyers, and the lowest priority for the Light occasional buyers. The main caution is that segment borders overlap (a k-means check agrees on 66.5% of households).
+- **One approach per segment.** Rewards without discounts for the Loyal regular-price buyers, price promotions on the brand they already favour for the Loyal promotion buyers, brand-tied multi-packs for the Heavy multi-brand shoppers, well-timed promotion 6 offers for the Promo-6 buyers, trial and visibility for the Small-brand regular-price buyers, and the lowest priority for the Light occasional buyers. The main caution is that segment borders overlap, and some segments are much sharper than others (@sec-robust).
 :::
 
 ## Business problem
@@ -18,7 +18,7 @@ Segmenting on behaviour matters commercially because a promotion aimed at the ri
 
 ## Objectives
 
-This report answers three questions on a panel of 600 households:
+This report answers three questions on a panel of households:
 
 1. **Question 1, brand loyalty.** Why raw brand shares are a poor basis for measuring loyalty, and how to replace them with a single variable, `MaxBrShare`.
 2. **Question 2, segmentation.** Select behavioural variables, prepare them, group the households with cluster analysis, describe each group and profile the groups with demographics.

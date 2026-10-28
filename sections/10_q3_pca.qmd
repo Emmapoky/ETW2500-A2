@@ -30,14 +30,15 @@ loner <- as_tibble(pca_cor, rownames = "variable") |>
 as_tibble(pca_cor, rownames = "variable") |>
   gt() |>
   fmt_number(-variable, decimals = 2) |>
-  data_color(columns = -variable, palette = c(pal[4], "white", pal[1]), domain = c(-1, 1))
+  data_color(columns = -variable, palette = c(pal[4], "white", pal[1]),
+             domain = c(-1, 1))
 ```
 
-The strongest relationship is between `r top_pair$var1` and `r top_pair$var2` (r = `r round(top_pair$r, 2)`), so there is real overlap for PCA to use. At the other extreme, `r loner$variable` is almost independent of the rest (its largest correlation with any other variable is `r round(loner$max_abs_r, 2)`), so it cannot be folded into the others and is likely to need a component of its own.
+@tbl-pca-correlation shows the correlations. The strongest relationship is between `r top_pair$var1` and `r top_pair$var2` (r = `r round(top_pair$r, 2)`), so there is real overlap for PCA to use. At the other extreme, `r loner$variable` is almost independent of the rest (its largest correlation with any other variable is `r round(loner$max_abs_r, 2)`), so it cannot be folded into the others and is likely to need a component of its own.
 
 ## Running the PCA
 
-The PCA follows the tidymodels pattern from the Week 7 tutorial: a recipe with `step_normalize()` and `step_pca()`, estimated with `prep()`, and checked against base R's `prcomp()`.
+The PCA follows the tidymodels recipe pattern [@kuhn2020tidymodels; @R-recipes]: a recipe with `step_normalize()` and `step_pca()`, estimated with `prep()`, and checked against base R's `prcomp()`.
 
 ```{r}
 #| label: pca-fit
@@ -45,12 +46,16 @@ The PCA follows the tidymodels pattern from the Week 7 tutorial: a recipe with `
 pca_data <- soap_prep |> select(MemberID, all_of(cluster_vars))
 
 pca_rec <- recipe(~ ., data = pca_data) |>
-  update_role(MemberID, new_role = "id") |>       # keep the ID, but leave it out of the PCA
+  # keep the ID, but leave it out of the PCA
+  update_role(MemberID, new_role = "id") |>
   step_normalize(all_numeric_predictors()) |>     # see the note below
-  step_pca(all_numeric_predictors(), num_comp = length(cluster_vars), id = "pca") |>  # keep all six for now
+  # keep all six for now
+  step_pca(all_numeric_predictors(), num_comp = length(cluster_vars),
+           id = "pca") |>
   prep()
 
-# What step_normalize learned: for already standardised data, means are 0 and sds are 1
+# What step_normalize learned: for already standardised data, means are 0 and
+# sds are 1
 norm_check <- tidy(pca_rec, number = 1) |>
   group_by(statistic) |>
   summarise(furthest = max(abs(value - if_else(statistic == "mean", 0, 1))))
@@ -59,7 +64,7 @@ norm_check <- tidy(pca_rec, number = 1) |>
 pca_base <- prcomp(select(pca_data, all_of(cluster_vars)))
 ```
 
-**Is `step_normalize()` needed again?** PCA must be run on standardised data, otherwise the variable with the largest units (volume) would dominate the first component only because its numbers are bigger. `soap_prep` was already standardised in @sec-prep, so this step changes nothing here: the means it learned differ from 0, and the standard deviations from 1, by at most `r signif(max(norm_check$furthest), 1)`, which is rounding error. It is kept so that the recipe is safe on its own if it is ever run on unprepared data. All six components are kept at this stage so that the number to retain is chosen from the evidence below rather than fixed in advance.
+**Is `step_normalize()` needed again?** PCA must be run on standardised data, otherwise the variable with the largest units (volume) would dominate the first component only because its numbers are bigger. `soap_prep` was already standardised in @sec-prep, so this step changes nothing here: the means it learned differ from 0, and the standard deviations from 1, by at most `r sprintf("%.0e", max(norm_check$furthest))`, which is rounding error. It is kept so that the recipe is safe on its own if it is ever run on unprepared data. All six components are kept at this stage so that the number to retain is chosen from the evidence below rather than fixed in advance.
 
 ## How many components to keep
 
@@ -75,7 +80,8 @@ pca_var <- tidy(pca_rec, id = "pca", type = "variance") |>
             cumulative = `cumulative percent variance`)
 
 # The variances match base R's prcomp() (eigenvalue = sd squared)
-same_as_prcomp <- isTRUE(all.equal(pca_var$eigenvalue, pca_base$sdev^2, check.attributes = FALSE))
+same_as_prcomp <- isTRUE(all.equal(pca_var$eigenvalue, pca_base$sdev^2,
+                                   check.attributes = FALSE))
 
 pca_var |>
   gt() |>
@@ -91,24 +97,27 @@ pca_var |>
 #| fig-width: 10
 #| fig-height: 4
 
-n_kaiser <- sum(pca_var$eigenvalue > 1)                 # Kaiser: eigenvalue above 1
-n_70     <- which(pca_var$cumulative >= 70)[1]          # enough components for 70% of the variation
-n_keep   <- n_70                                        # the decision (explained below)
+# Kaiser: eigenvalue above 1
+n_kaiser <- sum(pca_var$eigenvalue > 1)
+# enough components for 70% of the variation
+n_70     <- which(pca_var$cumulative >= 70)[1]
+# the decision (explained below)
+n_keep   <- n_70
 
 scree <- pca_var |>
   ggplot(aes(component, eigenvalue)) +
-  geom_hline(yintercept = 1, linetype = "dashed", colour = pal[6]) +
+  geom_hline(yintercept = 1, linetype = "dashed", colour = "grey55") +
   geom_line(colour = pal[1]) +
   geom_point(aes(colour = component <= n_keep), size = 3, show.legend = FALSE) +
-  scale_colour_manual(values = c(`TRUE` = pal[1], `FALSE` = pal[6])) +
+  scale_colour_manual(values = c(`TRUE` = pal[1], `FALSE` = pal_grey)) +
   scale_x_continuous(breaks = pca_var$component) +
   labs(title = "Scree plot", x = "Component", y = "Eigenvalue")
 
 cumul <- pca_var |>
   ggplot(aes(component, cumulative / 100)) +
   geom_col(aes(fill = component <= n_keep), show.legend = FALSE) +
-  geom_hline(yintercept = 0.7, linetype = "dashed", colour = pal[6]) +
-  scale_fill_manual(values = c(`TRUE` = pal[1], `FALSE` = pal[6])) +
+  geom_hline(yintercept = 0.7, linetype = "dashed", colour = "grey55") +
+  scale_fill_manual(values = c(`TRUE` = pal[1], `FALSE` = pal_grey)) +
   scale_x_continuous(breaks = pca_var$component) +
   scale_y_continuous(labels = percent) +
   labs(title = "Cumulative variance explained", x = "Component", y = NULL)
@@ -118,23 +127,22 @@ scree + cumul
 
 ```{r}
 #| label: pca-keep-values
-#| echo: false
 
 eig      <- pca_var$eigenvalue
 cum_keep <- pca_var$cumulative[n_keep]
 ```
 
-The first component explains `r round(pca_var$percent[1], 1)`% of the variation on its own, and each further component adds less. Three rules were read together to decide how many to keep:
+@tbl-pca-variance and @fig-pca-scree show the variance explained. The first component explains `r round(pca_var$percent[1], 1)`% of the variation on its own, and each further component adds less. Three rules were read together to decide how many to keep:
 
 1. **Kaiser rule** [@kaiser1960] (keep components with an eigenvalue above 1, meaning the component carries more information than a single standardised variable): `r n_kaiser` components.
-2. **Share of variance** (keep enough components to explain at least 70% of the variation): `r n_70` components, together explaining `r round(cum_keep, 1)`%.
+2. **Share of variance** (keep enough components to explain at least 70% of the variation): `r n_70` components, together explaining `r round(cum_keep, 1)`%. The unit's PCA lecture suggests that more than 60% is enough for social science data such as household purchases [@etw2500pca], so 70% is the stricter of the two and both are met.
 3. **Scree plot** (keep the components before the curve flattens): after component `r n_keep` the eigenvalues drop to `r round(eig[n_keep + 1], 2)` and `r round(eig[n_keep + 2], 2)`, which are almost level, so the curve flattens there.
 
 **The three rules agree, so `r n_keep` components are retained**, keeping `r round(cum_keep, 1)`% of the information while reducing six variables to three dimensions. One caution: the third eigenvalue is `r round(eig[3], 3)`, only just above 1, so the Kaiser rule alone would be a weak reason to keep it; the share of variance and the scree plot are what make the case. As a check, base R's `prcomp()` gives `r if (same_as_prcomp) "exactly the same eigenvalues" else "different eigenvalues, which needs checking"`.
 
 ## Naming and describing the components
 
-The **loadings** are the weights each original variable gets in a component. A loading far from 0 (here beyond ±0.4, a common cut-off) means the variable helps define that component, and its sign says whether the variable rises or falls as the component score rises. The sign of a whole component is arbitrary in PCA (multiplying every loading by -1 describes the same component), so each component is flipped, where needed, so that its largest loading is positive and "a high score" reads naturally.
+The **loadings** are the weights each original variable gets in a component. A loading far from 0 (here beyond ±0.4, a common cut-off) means the variable helps define that component, and its sign says whether the variable rises or falls as the component score rises. The sign of a whole component is arbitrary in PCA (multiplying every loading by -1 describes the same component), so each component is flipped, where needed, so that its largest loading is positive and "a high score" reads naturally. @fig-pca-loadings and @tbl-pca-loadings show the loadings of the retained components.
 
 ```{r}
 #| label: fig-pca-loadings
@@ -148,7 +156,8 @@ pca_load_raw <- tidy(pca_rec, id = "pca", type = "coef") |>
   filter(component %in% kept_pcs) |>
   select(variable = terms, component, value)
 
-# Flip each component so its largest loading is positive (direction only, the PCA is unchanged)
+# Flip each component so its largest loading is positive (direction only, the
+# PCA is unchanged)
 pc_flip <- pca_load_raw |>
   group_by(component) |>
   slice_max(abs(value), n = 1, with_ties = FALSE) |>
@@ -161,13 +170,17 @@ pca_load <- pca_load_raw |>
          strong = abs(value) >= 0.4)
 
 pca_load |>
-  ggplot(aes(value, fct_rev(factor(variable, levels = cluster_vars)), fill = strong)) +
+  ggplot(aes(value, fct_rev(factor(variable, levels = cluster_vars)),
+             fill = strong)) +
   geom_col() +
-  geom_vline(xintercept = c(-0.4, 0.4), linetype = "dashed", colour = pal[6]) +
+  geom_vline(xintercept = c(-0.4, 0.4), linetype = "dashed",
+             colour = "grey55") +
   facet_wrap(~ factor(component, levels = kept_pcs)) +
-  scale_fill_manual(values = c(`TRUE` = pal[1], `FALSE` = pal[6]),
-                    labels = c(`TRUE` = "Defines the component", `FALSE` = "Weak")) +
-  labs(title = "Loadings of the retained components", x = "Loading", y = NULL, fill = NULL)
+  scale_fill_manual(values = c(`TRUE` = pal[1], `FALSE` = pal_grey),
+                    labels = c(`TRUE` = "Defines the component",
+                               `FALSE` = "Weak")) +
+  labs(title = "Loadings of the retained components", x = "Loading", y = NULL,
+       fill = NULL)
 ```
 
 ```{r}
@@ -189,24 +202,29 @@ for (pc in kept_pcs) {
   load_gt <- load_gt |>
     tab_style(style = cell_text(weight = "bold", color = pal[1]),
               locations = cells_body(columns = all_of(pc),
-                                     rows = which(abs(pca_load_wide[[pc]]) >= 0.4)))
+                                     rows = which(abs(pca_load_wide[[pc]]) >=
+                                                  0.4)))
 }
 load_gt
 ```
 
 ```{r}
 #| label: pca-load-values
-#| echo: false
 
-ld <- \(v, pc) sprintf("%+.2f", pca_load_wide[[pc]][pca_load_wide$variable == v])
-pv <- \(pc) round(pca_var$percent[pca_var$component == as.integer(sub("PC", "", pc))], 1)
+# Loading of one variable on one component, and a component's share, as text
+loading_text <- \(v, pc) {
+  sprintf("%+.2f", pca_load_wide[[pc]][pca_load_wide$variable == v])
+}
+pct_var <- \(pc) {
+  round(pca_var$percent[pca_var$component == as.integer(sub("PC", "", pc))], 1)
+}
 ```
 
-**PC1: Shopping activity and brand variety** (`r pv("PC1")`% of the variation). It is defined by NoTrans (`r ld("NoTrans", "PC1")`), NoBrands (`r ld("NoBrands", "PC1")`) and TotalVol (`r ld("TotalVol", "PC1")`), so a high PC1 score means a household that buys often, buys a lot and spreads its purchases across many brands, while a low score is a light, occasional buyer. Because the number of brands loads together with the activity variables, buying more goes with trying more brands: in these data the heaviest buyers are not the most loyal ones (MaxBrShare loads `r ld("MaxBrShare", "PC1")`).
+**PC1: Shopping activity and brand variety** (`r pct_var("PC1")`% of the variation). It is defined by NoTrans (`r loading_text("NoTrans", "PC1")`), NoBrands (`r loading_text("NoBrands", "PC1")`) and TotalVol (`r loading_text("TotalVol", "PC1")`), so a high PC1 score means a household that buys often, buys a lot and spreads its purchases across many brands, while a low score is a light, occasional buyer. Because the number of brands loads together with the activity variables, buying more goes with trying more brands: in these data the heaviest buyers are not the most loyal ones (MaxBrShare loads `r loading_text("MaxBrShare", "PC1")`).
 
-**PC2: Loyal bulk buying versus promotion seeking** (`r pv("PC2")`% of the variation). It is defined by MaxBrShare (`r ld("MaxBrShare", "PC2")`) and TotalVol (`r ld("TotalVol", "PC2")`) against PurPromo6 (`r ld("PurPromo6", "PC2")`). A high PC2 score means a household that puts most of its volume on one brand and buys in quantity without needing a deal; a low score means a household whose purchases lean on promotion 6. This is the loyalty versus deal-seeking axis in the Key Problem, and it is a different idea from how active a household is (PC1).
+**PC2: Loyal bulk buying versus promotion seeking** (`r pct_var("PC2")`% of the variation). It is defined by MaxBrShare (`r loading_text("MaxBrShare", "PC2")`) and TotalVol (`r loading_text("TotalVol", "PC2")`) against PurPromo6 (`r loading_text("PurPromo6", "PC2")`). A high PC2 score means a household that puts most of its volume on one brand and buys in quantity without needing a deal; a low score means a household whose purchases lean on promotion 6. This is the loyalty versus deal-seeking axis in the Key Problem, and it is a different idea from how active a household is (PC1). The word "bulk" needs care, because TotalVol also loads `r loading_text("TotalVol", "PC1")` on PC1. So part of the volume difference between households is already counted as activity in PC1, and because the components are uncorrelated, the volume part of PC2 is the part of volume that PC1 does not already explain.
 
-**PC3: Response to other promotions** (`r pv("PC3")`% of the variation). It is almost entirely PurOtherPromo (`r ld("PurOtherPromo", "PC3")`), the variable that was barely related to any other. It earns a component of its own because this kind of promotion response is separate from both activity and loyalty: knowing how much a household buys, or how loyal it is, says little about whether it takes up these offers.
+**PC3: Response to other promotions** (`r pct_var("PC3")`% of the variation). It is almost entirely PurOtherPromo (`r loading_text("PurOtherPromo", "PC3")`), the variable that was barely related to any other. It earns a component of its own because this kind of promotion response is separate from both activity and loyalty: knowing how much a household buys, or how loyal it is, says little about whether it takes up these offers.
 
 ## The households on the components
 
@@ -221,11 +239,13 @@ Each household gets a score on every retained component. Plotting the first two 
 # Component scores, flipped the same way as the loadings, joined to the segments
 pca_scores <- bake(pca_rec, new_data = NULL) |>
   select(MemberID, all_of(kept_pcs)) |>
-  mutate(across(all_of(kept_pcs), \(x) x * pc_flip$flip[pc_flip$component == cur_column()])) |>
+  mutate(across(all_of(kept_pcs),
+                \(x) x * pc_flip$flip[pc_flip$component == cur_column()])) |>
   left_join(soap_clusters |> select(MemberID, segment), by = "MemberID") |>
   mutate(segment = factor(segment, levels = segment_names))
 
-# Arrows: the PC1 and PC2 loadings, stretched so they are visible next to the scores
+# Arrows: the PC1 and PC2 loadings, stretched so they are visible next to the
+# scores
 arrow_scale <- 0.8 * max(abs(c(pca_scores$PC1, pca_scores$PC2)))
 pca_arrows  <- pca_load |>
   filter(component %in% c("PC1", "PC2")) |>
@@ -234,9 +254,9 @@ pca_arrows  <- pca_load |>
   mutate(across(c(PC1, PC2), \(x) x * arrow_scale))
 
 ggplot(pca_scores, aes(PC1, PC2)) +
-  geom_point(aes(colour = segment), alpha = 0.6) +
+  geom_point(aes(colour = segment), alpha = 0.9) +
   geom_segment(data = pca_arrows, aes(x = 0, y = 0, xend = PC1, yend = PC2),
-               arrow = arrow(length = unit(0.2, "cm")), colour = "black") +
+               arrow = arrow(length = unit(0.2, "cm")), colour = pal_ink) +
   geom_label(data = pca_arrows, aes(label = variable), size = 3, alpha = 0.8) +
   scale_colour_manual(values = pal) +
   guides(colour = guide_legend(nrow = 2)) +
@@ -255,28 +275,34 @@ seg_means <- pca_scores |>
   summarise(across(all_of(kept_pcs), mean)) |>
   mutate(segment = as.character(segment))
 
-seg_r2 <- map_dbl(kept_pcs, \(pc) summary(lm(reformulate("segment", pc), data = pca_scores))$r.squared) |>
+seg_r2 <- map_dbl(kept_pcs, \(pc) summary(lm(reformulate("segment", pc),
+                                             data = pca_scores))$r.squared) |>
   set_names(kept_pcs)
 
 seg_means |>
   bind_rows(tibble(segment = "Variation explained by segment",
-                   PC1 = seg_r2[["PC1"]], PC2 = seg_r2[["PC2"]], PC3 = seg_r2[["PC3"]])) |>
+                   PC1 = seg_r2[["PC1"]], PC2 = seg_r2[["PC2"]],
+                   PC3 = seg_r2[["PC3"]])) |>
   gt() |>
-  fmt_number(all_of(kept_pcs), rows = segment != "Variation explained by segment", decimals = 2) |>
-  fmt_percent(all_of(kept_pcs), rows = segment == "Variation explained by segment", decimals = 0) |>
+  fmt_number(all_of(kept_pcs),
+             rows = segment != "Variation explained by segment",
+             decimals = 2) |>
+  fmt_percent(all_of(kept_pcs),
+              rows = segment == "Variation explained by segment",
+              decimals = 0) |>
   cols_label(segment = "Segment")
 ```
 
 ```{r}
 #| label: pca-segment-values
-#| echo: false
 
-sm3 <- \(seg, pc) sprintf("%+.2f", seg_means[[pc]][seg_means$segment == seg])
+seg_score <- \(seg, pc) sprintf("%+.2f",
+                                seg_means[[pc]][seg_means$segment == seg])
 ```
 
-The plot reads like a map of the segments. **Moving right** (PC1) goes from the Light occasional buyers (`r sm3("Light occasional buyers", "PC1")`) to the Heavy multi-brand shoppers (`r sm3("Heavy multi-brand shoppers", "PC1")`), the two ends of shopping activity. **Moving up** (PC2) goes from the Promo-6 buyers at the bottom (`r sm3("Promo-6 buyers", "PC2")`) to the Loyal regular-price buyers (`r sm3("Loyal regular-price buyers", "PC2")`) and Loyal promotion buyers (`r sm3("Loyal promotion buyers", "PC2")`) at the top, the loyalty against deal-seeking axis. The MaxBrShare and PurPromo6 arrows point in opposite directions, so households that are loyal to one brand tend not to rely on promotion 6. PC3, not shown in the plot, is where the **Loyal promotion buyers** stand out (`r sm3("Loyal promotion buyers", "PC3")`), because they are the segment that takes up other promotions.
+@fig-pca-biplot plots the households and @tbl-pca-segments gives each segment's mean score. The plot reads like a map of the segments. **Moving right** (PC1) goes from the Light occasional buyers (`r seg_score("Light occasional buyers", "PC1")`) to the Heavy multi-brand shoppers (`r seg_score("Heavy multi-brand shoppers", "PC1")`), the two ends of shopping activity. **Moving up** (PC2) goes from the Promo-6 buyers at the bottom (`r seg_score("Promo-6 buyers", "PC2")`) to the Loyal regular-price buyers (`r seg_score("Loyal regular-price buyers", "PC2")`) and Loyal promotion buyers (`r seg_score("Loyal promotion buyers", "PC2")`) at the top, the loyalty against deal-seeking axis. The MaxBrShare and PurPromo6 arrows point in opposite directions, so households that are loyal to one brand tend not to rely on promotion 6. PC3, not shown in the plot, is where the **Loyal promotion buyers** stand out (`r seg_score("Loyal promotion buyers", "PC3")`), because they are the segment that takes up other promotions.
 
-Segment membership explains `r percent(seg_r2[["PC1"]], accuracy = 1)` of the variation in PC1, `r percent(seg_r2[["PC2"]], accuracy = 1)` in PC2 and `r percent(seg_r2[["PC3"]], accuracy = 1)` in PC3. **The PCA and the clustering therefore tell the same story from two directions:** the clustering finds the groups, and the components name the three dimensions on which they differ, which are activity, loyalty against promotion 6, and response to other promotions.
+Segment membership explains `r percent(seg_r2[["PC1"]], accuracy = 1)` of the variation in PC1, `r percent(seg_r2[["PC2"]], accuracy = 1)` in PC2 and `r percent(seg_r2[["PC3"]], accuracy = 1)` in PC3. **The PCA therefore agrees with the clustering and names the dimensions behind it:** the clustering finds the groups, and the components name the three dimensions on which they differ, which are activity, loyalty against promotion 6, and response to other promotions. This is not independent proof that the segments are real, because both methods use the same six prepared variables.
 
 ## What PCA gives up
 

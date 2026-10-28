@@ -4,7 +4,7 @@ The segments in @sec-cluster were built from purchase behaviour only. Demographi
 
 ## Which three demographics, and why
 
-Each variable was chosen because a difference between segments on it leads to a different business action.
+Each variable was chosen because a difference between segments on it leads to a different business action (@tbl-profile-vars).
 
 ```{r}
 #| label: tbl-profile-vars
@@ -20,33 +20,36 @@ profile_missing <- soap_clean |>
 
 tibble(
   variable = profile_vars,
-  type     = c("Ordinal, 1 high to 4 low", "Numeric, number of members", "Ordinal, 1 young to 4 old"),
+  type     = c("Ordinal, 1 high to 4 low", "Numeric, number of members",
+               "Ordinal, 1 young to 4 old"),
   action   = c("Price point and value or premium range",
                "Pack size and multi-packs",
                "Media channel and message")
 ) |>
   left_join(profile_missing, by = "variable") |>
   gt() |>
-  cols_label(variable = "Variable", type = "Type", action = "Business lever it informs",
+  cols_label(variable = "Variable", type = "Type",
+             action = "Business lever it informs",
              n_missing = "Missing households")
 ```
 
 ```{r}
 #| label: other-demographics
-#| echo: false
 
 other_missing <- soap_clean |>
-  summarise(across(c(FEH, MT, SEX, EDU, CHILD, CS, Affluence), \(x) sum(is.na(x))))
+  summarise(across(c(FEH, MT, SEX, EDU, CHILD, CS, Affluence),
+                   \(x) sum(is.na(x))))
 share_female <- mean(soap_clean$SEX == 2, na.rm = TRUE)
 # Spearman correlation, because SEC is ordinal
-sec_aff_cor  <- cor(soap_clean$SEC, soap_clean$Affluence, method = "spearman", use = "complete.obs")
+sec_aff_cor  <- cor(soap_clean$SEC, soap_clean$Affluence, method = "spearman",
+                    use = "complete.obs")
 ```
 
 - **SEC (socioeconomic class)** tells a manufacturer what price a segment can bear. SEC is also one of the strata the panel was sampled on, so all `r nrow(soap_clean) - profile_missing$n_missing[profile_missing$variable == "SEC"]` households have a value and each class holds exactly a quarter of the panel, which makes any tilt within a segment easy to read.
 - **HS (household size)** is the demographic most directly tied to how much soap a household uses, so it tells the client which segments suit larger packs or multi-packs. `r profile_missing$n_missing[profile_missing$variable == "HS"]` households have no size recorded and are left out of the HS summaries only.
 - **AGE (age of the homemaker)** tells an advertising agency where and how to speak to each segment. Every household has a value.
 
-**Why not the others.** `Affluence` overlaps with SEC (Spearman correlation `r round(sec_aff_cor, 2)`; SEC runs from 1 high to 4 low, so a negative value means wealthier households sit in the higher classes) and has `r other_missing$Affluence` missing households. `MT` (native language) and `CHILD` are codes with no labels in the data guide, so a difference could not be turned into an action. `SEX` barely varies: `r percent(share_female, accuracy = 1)` of homemakers with a recorded value are female. `EDU`, `FEH` and `CS` are missing for `r other_missing$EDU`, `r other_missing$FEH` and `r other_missing$CS` households and are less directly linked to a bath soap decision. @sec-profile-check tests this choice against the data.
+**Why not the others.** `Affluence` overlaps with SEC (Spearman correlation `r round(sec_aff_cor, 2)`; SEC runs from 1 high to 4 low, so a negative value means wealthier households sit in the higher classes) and has `r other_missing$Affluence` missing households. `MT` (native language) and `CHILD` are codes with no labels in the data guide, so a difference could not be turned into an action. `SEX` barely varies: `r percent(share_female, accuracy = 1)` of homemakers with a recorded value are female. `EDU`, `FEH` and `CS` are missing for `r other_missing$EDU`, `r other_missing$FEH` and `r other_missing$CS` households and are less directly linked to a bath soap decision. The [appendix](#sec-profile-check) tests this choice against the data.
 
 **Missing values.** No household is dropped from the segmentation. For HS, each summary and test uses only the households that have a value, and the number used is shown.
 
@@ -55,10 +58,12 @@ sec_aff_cor  <- cor(soap_clean$SEC, soap_clean$Affluence, method = "spearman", u
 ```{r}
 #| label: profile-data
 
-# Attach the three demographics (and TotalVol, to link size to volume) to each household's segment
+# Attach the three demographics (and TotalVol, to link size to volume) to each
+# household's segment
 profile_df <- soap_clusters |>
   select(MemberID, cluster, segment) |>
-  left_join(soap_clean |> select(MemberID, all_of(profile_vars), TotalVol), by = "MemberID") |>
+  left_join(soap_clean |> select(MemberID, all_of(profile_vars), TotalVol),
+            by = "MemberID") |>
   mutate(
     # Readable labels for the ordinal codes
     SEC = factor(SEC, levels = 1:4, labels = c("1 High", "2", "3", "4 Low")),
@@ -78,7 +83,8 @@ plot_props <- function(data, var, title) {
     geom_col(colour = "white") +
     scale_x_continuous(labels = percent) +
     scale_fill_manual(values = pal) +
-    labs(title = title, y = NULL, x = "Share of households in the segment", fill = NULL)
+    labs(title = title, y = NULL, x = "Share of households in the segment",
+         fill = NULL)
 }
 
 # Per-segment summary used in the text and in the summary table
@@ -97,19 +103,23 @@ seg_profile <- profile_df |>
 ```{r}
 #| label: profile-tests-compute
 
-# Cramer's V: chi-squared rescaled to run from 0 (no association) to 1
+# Cramer's V (Cramer, 1946): chi-squared rescaled to run from 0 to 1
 cramers_v <- function(tab, stat) sqrt(stat / (sum(tab) * (min(dim(tab)) - 1)))
 
 # Chi-squared test plus Cramer's V for one categorical variable
 chisq_row <- function(data, var) {
   d   <- data |> filter(!is.na(.data[[var]]))
   tab <- table(d$segment, d[[var]])
-  res <- chisq.test(tab, simulate.p.value = TRUE, B = 5000)   # simulated p-value, see below
-  tibble(variable = var, test = "Chi-squared", n = sum(tab), p_value = res$p.value,
-         effect = cramers_v(tab, unname(res$statistic)), effect_measure = "Cramer's V")
+  # simulated p-value, see below
+  res <- chisq.test(tab, simulate.p.value = TRUE, B = 5000)
+  tibble(variable = var, test = "Chi-squared", n = sum(tab),
+         p_value = res$p.value,
+         effect = cramers_v(tab, unname(res$statistic)),
+         effect_measure = "Cramer's V")
 }
 
-hs_df <- profile_df |> filter(!is.na(HS))       # only households with a recorded size
+# only households with a recorded size
+hs_df <- profile_df |> filter(!is.na(HS))
 
 set.seed(55789)   # the simulated p-values are random, so fix them
 kw_hs <- kruskal.test(HS ~ segment, data = hs_df)
@@ -118,16 +128,17 @@ profile_tests <- bind_rows(
   chisq_row(profile_df, "SEC"),
   tibble(variable = "HS", test = "Kruskal-Wallis", n = nrow(hs_df),
          p_value = kw_hs$p.value,
-         effect = unname(kw_hs$statistic) / (nrow(hs_df) - 1),    # epsilon squared
+         # epsilon squared
+         effect = unname(kw_hs$statistic) / (nrow(hs_df) - 1),
          effect_measure = "Epsilon squared"),
   chisq_row(profile_df, "AGE")
 )
 
 # Small helpers for the text
-sp    <- \(seg, col) seg_profile[[col]][seg_profile$segment == seg]
-pct   <- \(x) percent(x, accuracy = 1)
-fmt_p <- \(p) if_else(p < 0.001, "p < 0.001", paste("p =", sprintf("%.3f", p)))
-tst   <- \(var) profile_tests |> filter(variable == var)
+seg_prof <- \(seg, col) seg_profile[[col]][seg_profile$segment == seg]
+fmt_p    <- \(p) if_else(p < 0.001, "p < 0.001", paste("p =", sprintf("%.3f",
+                                                                      p)))
+test_row <- \(var) profile_tests |> filter(variable == var)
 ```
 
 ### Socioeconomic class
@@ -141,7 +152,7 @@ tst   <- \(var) profile_tests |> filter(variable == var)
 plot_props(profile_df, SEC, "Socioeconomic class within each segment")
 ```
 
-Because the panel is stratified on SEC, every class holds 25% of households overall, so a segment that departs from a quarter in a class genuinely leans that way. The **Loyal promotion buyers** have the most lower-class households: `r pct(sp("Loyal promotion buyers", "sec_low"))` are in SEC 4. Together with their high use of other promotions (@sec-cluster), this points to a budget-conscious group that stays with one brand but buys more of it when it is on offer, so price promotions *on their favourite brand* reach them well. The **Promo-6 buyers** lean the other way, with `r pct(sp("Promo-6 buyers", "sec_high"))` in SEC 1 or 2 against 50% overall: their heavy use of promotion 6 looks like a deal-seeking habit rather than a sign that they cannot afford full price, so the *timing* of promotion 6 matters more than a cheaper product. The test confirms a real but small difference (`r fmt_p(tst("SEC")$p_value)`, Cramér's V = `r round(tst("SEC")$effect, 3)`), so SEC is a useful secondary guide, not a targeting rule on its own.
+@fig-profile-sec shows the class mix. Because the panel is stratified on SEC, every class holds 25% of households overall, so a segment that departs from a quarter in a class genuinely leans that way. The **Loyal promotion buyers** have the most lower-class households: `r fmt_pct(seg_prof("Loyal promotion buyers", "sec_low"))` are in SEC 4. Together with their high use of other promotions (@sec-cluster), this points to a budget-conscious group that stays with one brand but buys more of it when it is on offer, so price promotions *on their favourite brand* reach them well. The **Promo-6 buyers** lean the other way, with `r fmt_pct(seg_prof("Promo-6 buyers", "sec_high"))` in SEC 1 or 2 against `r fmt_pct(mean(as.integer(profile_df$SEC) <= 2))` overall: their heavy use of promotion 6 looks like a deal-seeking habit rather than a sign that they cannot afford full price, so the *timing* of promotion 6 matters more than a cheaper product. The test confirms a real but small difference (`r fmt_p(test_row("SEC")$p_value)`, Cramér's V = `r round(test_row("SEC")$effect, 3)`), so SEC is a useful secondary guide, not a targeting rule on its own.
 
 ### Household size
 
@@ -161,9 +172,9 @@ hs_df |>
        y = NULL, x = "Members in the household")
 ```
 
-The **Heavy multi-brand shoppers** have the largest households (`r round(sp("Heavy multi-brand shoppers", "hs_mean"), 1)` members on average against `r round(mean(hs_df$HS), 1)` overall) and also buy the most soap, which fits the simple logic that more people use more soap. For a client this is the natural segment for family packs and multi-packs, ideally tied to one brand to counter their habit of spreading volume across brands. The **Mainstream non-loyal buyers** and **Promo-6 buyers** have the smallest households (`r round(sp("Mainstream non-loyal buyers", "hs_mean"), 1)` and `r round(sp("Promo-6 buyers", "hs_mean"), 1)` members), so standard packs suit them. The difference is statistically significant but small (`r fmt_p(tst("HS")$p_value)`, epsilon squared = `r round(tst("HS")$effect, 3)`).
+@fig-profile-hs shows household size. The **Heavy multi-brand shoppers** have the largest households (`r round(seg_prof("Heavy multi-brand shoppers", "hs_mean"), 1)` members on average against `r round(mean(hs_df$HS), 1)` overall) and also buy the most soap, which fits the simple logic that more people use more soap. For a client this is the natural segment for family packs and multi-packs, ideally tied to one brand to counter their habit of spreading volume across brands. The **Small-brand regular-price buyers** and **Promo-6 buyers** have the smallest households (`r round(seg_prof("Small-brand regular-price buyers", "hs_mean"), 1)` and `r round(seg_prof("Promo-6 buyers", "hs_mean"), 1)` members), so standard packs suit them. The difference is statistically significant but small (`r fmt_p(test_row("HS")$p_value)`, epsilon squared = `r round(test_row("HS")$effect, 3)`).
 
-One pattern needs a warning: only `r sp("Light occasional buyers", "hs_n")` of the `r sp("Light occasional buyers", "households")` **Light occasional buyers** have a recorded household size. Most of the `r sum(is.na(soap_clean$HS))` households with no demographic information at all fall into this segment, so it may partly reflect households with incomplete panel records rather than a true customer type, and its demographic profile should not be relied on.
+One pattern needs a warning: only `r seg_prof("Light occasional buyers", "hs_n")` of the `r seg_prof("Light occasional buyers", "households")` **Light occasional buyers** have a recorded household size. The largest share of the `r sum(is.na(soap_clean$HS))` households with no household size (which also lack education, language, gender, TV and Affluence, @sec-prep) falls into this segment (`r seg_prof("Light occasional buyers", "households") - seg_prof("Light occasional buyers", "hs_n")` of them), so it may partly reflect households with incomplete panel records rather than a true customer type, so its household size profile should not be relied on. Its `SEC` and `AGE` are recorded for every household, so those two comparisons still hold.
 
 ### Age of the homemaker
 
@@ -176,11 +187,11 @@ One pattern needs a warning: only `r sp("Light occasional buyers", "hs_n")` of t
 plot_props(profile_df, AGE, "Age of the homemaker within each segment")
 ```
 
-Age does **not** separate the segments (`r fmt_p(tst("AGE")$p_value)`, Cramér's V = `r round(tst("AGE")$effect, 3)`). Older homemakers are the largest group in every segment, from `r pct(min(seg_profile$age_old))` to `r pct(max(seg_profile$age_old))` in the oldest class, and the differences in the chart are within what chance would produce. The practical conclusion is that age gives no reason to reach one segment through a different media channel from another.
+@fig-profile-age shows that age does **not** separate the segments (`r fmt_p(test_row("AGE")$p_value)`, Cramér's V = `r round(test_row("AGE")$effect, 3)`). Older homemakers are the largest group in every segment, from `r fmt_pct(min(seg_profile$age_old))` to `r fmt_pct(max(seg_profile$age_old))` in the oldest class, and the differences in the chart are within what chance would produce. The practical conclusion is that age gives no reason to reach one segment through a different media channel from another.
 
 ## Are the differences real?
 
-A chart can show a difference that is only noise, so each variable is tested. SEC and AGE are categorical, so a **chi-squared test of independence** checks whether the mix of classes differs between segments. Some cells are small (few households have the youngest age code), so the p-value is simulated rather than taken from the chi-squared table, which keeps it valid when expected counts are below 5. HS is a count with a long right tail, so the **Kruskal-Wallis test**, which compares segments on ranks rather than means, is used instead of ANOVA. With 600 households even a tiny difference can be "significant", so an effect size is also reported: Cramér's V for the categorical variables and epsilon squared for HS, both running from 0 (no association) to 1.
+A chart can show a difference that is only noise, so each variable is tested. SEC and AGE are categorical, so a **chi-squared test of independence** checks whether the mix of classes differs between segments. Some cells are small (few households have the youngest age code), so the p-value is simulated rather than taken from the chi-squared table, which keeps it valid when expected counts are below 5. HS is a count with a long right tail, so the **Kruskal-Wallis test**, which compares segments on ranks rather than means, is used instead of ANOVA. With `r nrow(profile_df)` households even a tiny difference can be "significant", so an effect size is also reported: Cramér's V [@cramer1946] for the categorical variables and epsilon squared for HS, both running from 0 (no association) to 1.
 
 ```{r}
 #| label: tbl-profile-tests
@@ -192,113 +203,13 @@ profile_tests |>
   fmt_number(effect, decimals = 3) |>
   fmt_number(p_value, decimals = 4) |>
   cols_label(variable = "Variable", test = "Test", n = "Households used",
-             p_value = "p-value", effect = "Effect size", effect_measure = "Measure")
+             p_value = "p-value", effect = "Effect size",
+             effect_measure = "Measure")
 ```
 
-SEC and household size differ significantly between segments, but both effects are small, and age does not differ at all. **The segments are therefore only weakly visible in demographics.** That is a finding in itself, and it supports XYZ's move to behavioural segmentation: a client could not have found these segments from demographics alone, so targeting should run on purchase data (panel or loyalty card records), with SEC and household size used to fine-tune the offer.
+@tbl-profile-tests gives the results. SEC and household size differ significantly between segments, but both effects are small, and age does not differ at all. **The segments are therefore only weakly visible in demographics.** That is a finding in itself, and it supports XYZ's move to behavioural segmentation: a client could not have found these segments from demographics alone, so targeting should run on purchase data (panel or loyalty card records), with SEC and household size used to fine-tune the offer.
 
-### Where do the differences come from?
-
-For SEC and AGE, the **standardised residual** of each cell compares the number of households in that segment and class with the number expected if every segment had the same mix. A value beyond ±2 marks a clear excess (positive) or shortfall (negative). For HS, **pairwise Wilcoxon tests** compare every pair of segments, with the **Holm adjustment** keeping the overall chance of a false difference at 5% across all the comparisons.
-
-```{r}
-#| label: fig-profile-residuals
-#| fig-cap: "Standardised residuals of segment by SEC and by AGE. Beyond plus or minus 2 is a clear difference."
-#| fig-width: 11
-#| fig-height: 4.5
-
-# Standardised residuals of the segment by class table, in long form for plotting
-resid_df <- function(data, var) {
-  d   <- data |> filter(!is.na(.data[[var]]))
-  tab <- table(segment = d$segment, level = d[[var]])
-  res <- suppressWarnings(chisq.test(tab))     # only the residuals are used here
-  as.data.frame.table(res$stdres, responseName = "resid") |> mutate(variable = var)
-}
-
-plot_resid <- function(rd, title) {
-  ggplot(rd, aes(level, fct_rev(segment), fill = resid)) +
-    geom_tile(colour = "white") +
-    geom_text(aes(label = round(resid, 1), colour = abs(resid) > 2), show.legend = FALSE) +
-    scale_colour_manual(values = c(`TRUE` = "white", `FALSE` = "black")) +
-    scale_fill_gradient2(low = pal[4], mid = "white", high = pal[1], midpoint = 0) +
-    labs(title = title, x = NULL, y = NULL, fill = "Residual")
-}
-
-sec_resid <- resid_df(profile_df, "SEC")
-age_resid <- resid_df(profile_df, "AGE")
-
-plot_resid(sec_resid, "Socioeconomic class") + plot_resid(age_resid, "Age of the homemaker")
-```
-
-```{r}
-#| label: tbl-profile-hs-pairs
-#| tbl-cap: "Household size: segment pairs that still differ after the Holm adjustment."
-
-hs_pairs <- pairwise.wilcox.test(hs_df$HS, hs_df$segment,
-                                 p.adjust.method = "holm", exact = FALSE) |>
-  tidy()
-
-hs_pairs |>
-  filter(p.value < 0.05) |>
-  gt() |>
-  fmt_number(p.value, decimals = 4) |>
-  cols_label(group1 = "Segment", group2 = "Compared with", p.value = "Holm-adjusted p-value")
-```
-
-```{r}
-#| label: residual-values
-#| echo: false
-
-rv <- \(seg, lvl) sprintf("%+.1f", sec_resid$resid[sec_resid$segment == seg & sec_resid$level == lvl])
-n_age_cells <- sum(abs(age_resid$resid) > 2)
-```
-
-The SEC result is driven by three segments: the Loyal promotion buyers have more SEC 4 households than expected (`r rv("Loyal promotion buyers", "4 Low")`), the Promo-6 buyers have more SEC 2 households (`r rv("Promo-6 buyers", "2")`), and the small Light occasional group has more SEC 1 households (`r rv("Light occasional buyers", "1 High")`). `r if (n_age_cells == 0) "No age cell goes beyond 2 in either direction, which matches the non-significant age test." else paste(n_age_cells, "age cells go beyond 2 in either direction, but the age test as a whole is not significant.")` For household size, only the pairs in the table above differ after adjustment, and every one of them involves the Heavy multi-brand shoppers' larger households. These are the comparisons a client should rely on when choosing which segment gets which offer.
-
-## Did we miss a better demographic? {#sec-profile-check}
-
-The three variables were chosen for business reasons. As a check, every demographic is measured on how strongly it separates the segments with one common measure, Cramér's V. Numeric variables (HS, Affluence and EDU, which has nine sparse levels) are first cut into four equal-sized groups, and native-language codes held by fewer than 20 households are pooled, so that rare codes do not inflate the measure.
-
-```{r}
-#| label: fig-profile-all-demographics
-#| fig-cap: "How strongly each demographic separates the six segments (Cramer's V)."
-#| fig-width: 8
-#| fig-height: 4.5
-
-all_demo_v <- map_dfr(demo_cols, \(v) {
-  d <- soap_clusters |>
-    select(MemberID, segment) |>
-    left_join(soap_clean |> select(MemberID, value = all_of(v)), by = "MemberID") |>
-    filter(!is.na(value))
-  grp <- if (v %in% c("HS", "Affluence", "EDU")) {
-    factor(ntile(d$value, 4))                      # numeric: four equal-sized groups
-  } else {
-    fct_lump_min(factor(d$value), min = 20)         # categorical: pool rare codes
-  }
-  tab <- table(d$segment, grp)
-  res <- suppressWarnings(chisq.test(tab))         # only the statistic is used
-  tibble(variable = v, n = nrow(d),
-         cramers_v = cramers_v(tab, unname(res$statistic)),
-         chosen = v %in% profile_vars)
-})
-
-all_demo_v |>
-  ggplot(aes(cramers_v, fct_reorder(variable, cramers_v), fill = chosen)) +
-  geom_col() +
-  scale_fill_manual(values = c(`TRUE` = pal[1], `FALSE` = pal[6]),
-                    labels = c(`TRUE` = "Chosen", `FALSE` = "Not chosen")) +
-  labs(title = "How strongly each demographic separates the segments",
-       x = "Cramer's V", y = NULL, fill = NULL)
-```
-
-```{r}
-#| label: check-values
-#| echo: false
-
-dv <- \(v) round(all_demo_v$cramers_v[all_demo_v$variable == v], 3)
-```
-
-Every demographic separates the segments only weakly (the largest V is `r round(max(all_demo_v$cramers_v), 3)`), which repeats the finding above. HS and SEC are among the stronger variables, which supports two of the three choices. `Affluence` (V = `r dv("Affluence")`) and `EDU` (`r dv("EDU")`) separate the segments more than AGE (`r dv("AGE")`). They were left out because Affluence largely repeats SEC and EDU has many sparse levels and more missing values, but with hindsight Affluence would be a reasonable substitute for AGE. It is reported here so a reader can see the trade-off rather than take the choice on trust.
+Where these differences come from (standardised residuals for SEC and AGE, and pairwise tests for household size) and a check of every demographic against the three chosen are in the [Further checks](#sec-further-checks) part of the appendix.
 
 ## Summary profile of each segment
 
@@ -319,11 +230,11 @@ seg_profile |>
   tab_spanner(label = "Household size", columns = c(hs_median, hs_mean))
 ```
 
-Putting purchase behaviour (@sec-cluster) and demographics together:
+@tbl-profile-summary brings the profile together. Putting purchase behaviour (@sec-cluster) and demographics together:
 
 - **Heavy multi-brand shoppers:** the largest households and the most volume. Family packs and multi-packs, combined with a reward scheme that concentrates their spending on one brand.
-- **Loyal promotion buyers:** the most lower-class households (`r pct(sp("Loyal promotion buyers", "sec_low"))` in SEC 4). Value packs and price promotions on the brand they already favour.
-- **Promo-6 buyers:** more higher-class households than average (`r pct(sp("Promo-6 buyers", "sec_high"))` in SEC 1 or 2). Promotion 6 offers spread through the year; a cheaper product is not needed.
+- **Loyal promotion buyers:** the most lower-class households (`r fmt_pct(seg_prof("Loyal promotion buyers", "sec_low"))` in SEC 4). Value packs and price promotions on the brand they already favour.
+- **Promo-6 buyers:** more higher-class households than average (`r fmt_pct(seg_prof("Promo-6 buyers", "sec_high"))` in SEC 1 or 2). Promotion 6 offers spread through the year; a cheaper product is not needed.
 - **Loyal regular-price buyers:** demographically close to the average household. Reward schemes rather than discounts, which they do not need.
-- **Mainstream non-loyal buyers:** close to average with smaller households, so demographics give little extra help in finding them; they are best reached through purchase data.
-- **Light occasional buyers:** too small, too light and too poorly recorded (`r sp("Light occasional buyers", "households") - sp("Light occasional buyers", "hs_n")` of `r sp("Light occasional buyers", "households")` have no demographics) to target separately.
+- **Small-brand regular-price buyers:** close to average with smaller households, so demographics give little extra help in finding them; they are best reached through purchase data, with trial and visibility to win them from small brands.
+- **Light occasional buyers:** too small, too light and too poorly recorded (`r seg_prof("Light occasional buyers", "households") - seg_prof("Light occasional buyers", "hs_n")` of `r seg_prof("Light occasional buyers", "households")` have no household size, education or TV record) to target separately.

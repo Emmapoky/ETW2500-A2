@@ -18,7 +18,8 @@ The name of the brand is irrelevant. A household that gives 90% of its volume to
 Euclidean distance is the square root of the sum of squared differences across the variables. Here the variables are the two brand shares, so the distance between households $i$ and $j$ is $\sqrt{(A_i - A_j)^2 + (B_i - B_j)^2}$. A small distance means the two households look alike to a distance based method.
 
 ```{r}
-#| label: example-distances
+#| label: tbl-example-distances
+#| tbl-cap: "Euclidean distance between households X, Y and Z."
 
 # dist() needs numbers only, so the Household names move into the row names.
 # as.data.frame() first, because tibbles do not keep row names.
@@ -33,12 +34,12 @@ example_dist <- dist(example_shares, method = "euclidean")
 as.matrix(example_dist) |>
   as_tibble(rownames = "Household") |>
   gt() |>
-  fmt_number(columns = -Household, decimals = 3) |>
-  tab_header(title = "Euclidean distance between households X, Y and Z")
+  fmt_number(columns = -Household, decimals = 3)
 ```
 
 ```{r}
-#| label: example-pairs
+#| label: tbl-example-pairs
+#| tbl-cap: "Each pair of toy households, from closest to furthest."
 
 # One row per pair (each pair once), sorted from closest to furthest
 example_pairs <- as.matrix(example_dist) |>
@@ -63,27 +64,32 @@ example_pairs |>
 
 # Straight line segments between each pair, labelled with their distance
 segment_tbl <- example_pairs |>
-  left_join(rename(brand_example, from = Household, x1 = BrandA, y1 = BrandB), by = "from") |>
-  left_join(rename(brand_example, to = Household, x2 = BrandA, y2 = BrandB), by = "to") |>
-  # Label at the midpoint, moved off the line for the longest pair so it does not cover Z
+  left_join(rename(brand_example, from = Household, x1 = BrandA, y1 = BrandB),
+            by = "from") |>
+  left_join(rename(brand_example, to = Household, x2 = BrandA, y2 = BrandB),
+            by = "to") |>
+  # Label at the midpoint, moved off the line for the longest pair so it does
+  # not cover Z
   mutate(label_x = (x1 + x2) / 2 + if_else(distance == max(distance), 0.18, 0),
          label_y = (y1 + y2) / 2 + if_else(distance == max(distance), 0.18, 0))
 
 ggplot(brand_example, aes(BrandA, BrandB)) +
-  geom_abline(intercept = 1, slope = -1, linetype = "dashed", colour = "grey60") +
+  geom_abline(intercept = 1, slope = -1, linetype = "dashed",
+              colour = "grey60") +
   geom_segment(data = segment_tbl, aes(x = x1, y = y1, xend = x2, yend = y2),
-               colour = pal[2], linewidth = 0.6) +
+               colour = pal[2], linewidth = 1) +
   geom_label(data = segment_tbl,
              aes(x = label_x, y = label_y, label = round(distance, 3)),
-             size = 3.5, colour = pal[1]) +
+             size = 3.5, colour = pal_ink) +
   geom_point(size = 5, colour = pal[1]) +
-  geom_text(aes(label = Household), nudge_x = 0.04, nudge_y = 0.05, fontface = "bold") +
+  geom_text(aes(label = Household), nudge_x = 0.04, nudge_y = 0.05,
+            fontface = "bold") +
   coord_equal(xlim = c(-0.1, 1.15), ylim = c(-0.1, 1.15)) +
   labs(title = "X and Y are furthest apart, yet equally loyal",
        x = "Share of volume in brand A", y = "Share of volume in brand B")
 ```
 
-The closest pairs are `r str_c("(", example_pairs$from[example_pairs$distance == min(example_pairs$distance)], ", ", example_pairs$to[example_pairs$distance == min(example_pairs$distance)], ")", collapse = " and ")`, tied at `r sprintf("%.3f", min(example_pairs$distance))`, while X and Y are the furthest apart at `r sprintf("%.3f", max(example_pairs$distance))`. Household Z splits its volume evenly between the two brands, so it sits halfway between X and Y and is the same distance from each.
+@tbl-example-distances gives the full distance matrix and @tbl-example-pairs ranks the pairs. The closest pairs are `r str_c("(", example_pairs$from[example_pairs$distance == min(example_pairs$distance)], ", ", example_pairs$to[example_pairs$distance == min(example_pairs$distance)], ")", collapse = " and ")`, tied at `r sprintf("%.3f", min(example_pairs$distance))`, while X and Y are the furthest apart at `r sprintf("%.3f", max(example_pairs$distance))`. Household Z splits its volume evenly between the two brands, so it sits halfway between X and Y and is the same distance from each.
 
 **This is not consistent with item 1.** In item 1, X and Y are equally loyal, so they should be the most similar pair on loyalty. The distances say the opposite: X and Y are the most different pair, and each looks more like the half and half household Z. The distance is reading *which brand* was bought, and is blind to *how concentrated* the buying is.
 
@@ -100,16 +106,20 @@ Distance based methods such as cluster analysis group households that are close 
 The next chunk checks this on the real data, using only the households that put **all** of their volume into one named brand.
 
 ```{r}
-#| label: nine-share-distances
+#| label: tbl-nine-share-distances
+#| tbl-cap: "Fully loyal households: the distance on the nine shares depends only on the brand."
 
 # The nine share columns: eight named brands plus the pooled BrOthers
 nine_cols <- c(brand_cols, "BrOthers")
 
 # Households that put all of their volume into one single named brand.
-# max.col() finds, for each row, the column (brand) that holds the largest share.
+# max.col() finds, for each row, the column (brand) that holds the largest
+# share.
 loyal <- soap_raw |>
-  filter(if_any(all_of(brand_cols), \(x) near(x, 1))) |>   # near(): safe comparison for decimals
-  mutate(brand = brand_cols[max.col(across(all_of(brand_cols)), ties.method = "first")])
+  # near(): safe comparison for decimals
+  filter(if_any(all_of(brand_cols), \(x) near(x, 1))) |>
+  mutate(brand = brand_cols[max.col(across(all_of(brand_cols)),
+                                    ties.method = "first")])
 
 # Pairwise Euclidean distance on the nine shares, kept as a square matrix
 loyal_dist <- as.matrix(dist(select(loyal, all_of(nine_cols))))
@@ -125,8 +135,7 @@ loyal_pairs |>
   mutate(same_brand = if_else(same_brand, "Same brand", "Different brand")) |>
   gt() |>
   cols_label(same_brand = "Loyal to", distance = "Distance on the nine shares",
-             n = "Pairs of households") |>
-  tab_header(title = "Fully loyal households: distance depends only on the brand")
+             n = "Pairs of households")
 ```
 
-There are `r nrow(loyal)` households that are completely loyal to one named brand, which makes `r nrow(loyal_pairs)` pairs. Every pair that shares a brand has a distance of `r sprintf("%.0f", unique(loyal_pairs$distance[loyal_pairs$same_brand]))`, because their rows are identical. Every pair with different brands has a distance of `r sprintf("%.3f", unique(round(loyal_pairs$distance[!loyal_pairs$same_brand], 3)))`, the square root of 2, and these make up `r scales::percent(mean(!loyal_pairs$same_brand), accuracy = 1)` of all pairs. Behaviour is identical in all `r nrow(loyal)` households, yet the unchanged shares push most of them as far apart as two single brand buyers can be. A clustering algorithm would split them by brand name, which a client cannot use. The brand shares have to be replaced by a variable that measures concentration and ignores identity, which is what `MaxBrShare` does in @sec-q1b.
+@tbl-nine-share-distances groups the pairs by distance. There are `r nrow(loyal)` households that are completely loyal to one named brand, which makes `r nrow(loyal_pairs)` pairs. Every pair that shares a brand has a distance of `r sprintf("%.0f", unique(loyal_pairs$distance[loyal_pairs$same_brand]))`, because their rows are identical. Every pair with different brands has a distance of `r sprintf("%.3f", unique(round(loyal_pairs$distance[!loyal_pairs$same_brand], 3)))`, the square root of 2, and these make up `r scales::percent(mean(!loyal_pairs$same_brand), accuracy = 1)` of all pairs. Behaviour is identical in all `r nrow(loyal)` households, yet the unchanged shares push most of them as far apart as two single brand buyers can be. A clustering algorithm would split them by brand name, which a client cannot use. The brand shares have to be replaced by a variable that measures concentration and ignores identity, which is what `MaxBrShare` does in @sec-q1b.

@@ -2,7 +2,7 @@
 
 ## Packages, seed and theme
 
-All packages are loaded in one chunk, before anything else runs. `pacman::p_load()` installs any package that is missing on the reader's machine, so the report renders without a separate installation step. There is no `install.packages()` call anywhere in this document. The analysis is written in R [@rcore2026] with the tidyverse [@wickham2019tidyverse] for data handling and graphics and tidymodels [@kuhn2020tidymodels; @R-recipes] for the preparation and PCA recipes. Clustering uses `cluster` [@R-cluster] and `factoextra` [@R-factoextra], tables use `gt` [@R-gt], paths use `here` [@R-here], and combined figures use `patchwork` [@R-patchwork].
+All packages are loaded in one chunk, before anything else runs. `pacman::p_load()` installs any package that is missing on the reader's machine, so the report renders without a separate installation step. There is no `install.packages()` call anywhere in this document. The analysis is written in R [@rcore2026] with the tidyverse [@wickham2019tidyverse] for data handling and graphics and tidymodels [@kuhn2020tidymodels; @R-recipes] for the preparation and PCA recipes. Clustering uses `cluster` [@R-cluster] and `factoextra` [@R-factoextra], tables use `gt` [@R-gt], paths use `here` [@R-here], cleaning uses `janitor` [@R-janitor], combined figures use `patchwork` [@R-patchwork], the adjusted Rand index comes from `mclust` [@scrucca2016mclust] and skewness from `moments` [@R-moments].
 
 ```{r}
 #| label: setup
@@ -10,19 +10,29 @@ All packages are loaded in one chunk, before anything else runs. `pacman::p_load
 # pacman installs anything missing, then loads it
 library(pacman)
 p_load(tidyverse, tidymodels, here, janitor, gt, scales, patchwork,
-       factoextra, cluster, dendextend)
+       factoextra, cluster, moments)
+# mclust is installed but not attached: its map() would hide purrr::map(),
+# so it is called as mclust::adjustedRandIndex()
+p_install(mclust, force = FALSE)
 
 # The seed is the last five digits of the group leader's student ID.
 # Clustering and any random split depend on it, so setting it once, here,
 # makes every result in this report repeat exactly.
 set.seed(55789)
 
-# One palette and one chart theme for the whole report, so every figure matches.
-pal <- c("#51017C", "#B9379D", "#E3A88A", "#2A9D8F", "#E9C46A", "#6C757D")
+# One flat pastel palette and one chart theme for the whole report, so every
+# figure matches the HTML styling (document/style.css uses the same colours).
+# pal[1] is the main colour and pal[4] its opposite in the diverging scales.
+pal      <- c("#B4A7E5", "#F2A7B8", "#F6BE95", "#9EC3E8", "#9FD8C0", "#EED67F")
+pal_grey <- "#D8D5E0"   # neutral, for "not selected" bars
+pal_ink  <- "#34304A"   # text and arrows
 theme_set(
   theme_minimal(base_size = 13) +
-    theme(plot.title = element_text(face = "bold", colour = "#3b1f5e"),
+    theme(plot.title = element_text(face = "bold", colour = pal_ink),
+          text = element_text(colour = pal_ink),
+          axis.text = element_text(colour = "#6B6680"),
           panel.grid.minor = element_blank(),
+          panel.grid.major = element_line(colour = "#EEEBF5"),
           legend.position = "bottom")
 )
 ```
@@ -34,8 +44,10 @@ The file `bathsoap.csv` has one row per household. `brand_example.csv` is the th
 ```{r}
 #| label: load-data
 
-soap_raw      <- read_csv(here("data", "bathsoap.csv"), show_col_types = FALSE)
-brand_example <- read_csv(here("data", "brand_example.csv"), show_col_types = FALSE)
+soap_raw      <- read_csv(here("dataset", "bathsoap.csv"),
+                          show_col_types = FALSE)
+brand_example <- read_csv(here("dataset", "brand_example.csv"),
+                          show_col_types = FALSE)
 
 # Column groups, named once so every section uses the same definitions.
 # The eight named brands are used for loyalty; BrOthers pools many small brands
@@ -49,7 +61,8 @@ demo_cols  <- c("SEC", "FEH", "MT", "SEX", "AGE", "EDU", "HS", "CHILD", "CS",
 ## First look
 
 ```{r}
-#| label: first-look
+#| label: tbl-first-look
+#| tbl-cap: "Basic checks on bathsoap.csv."
 
 # Households whose nine brand shares do not add up to 1 within 0.01.
 # Defined once here so other sections can reuse it.
@@ -68,8 +81,7 @@ tibble(
   gt() |>
   cols_label(households = "Households", columns = "Columns",
              unique_ids = "Unique IDs", missing_cells = "Empty cells (NA)",
-             shares_off = "Brand shares not summing to 1 (within 0.01)") |>
-  tab_header(title = "Basic checks on bathsoap.csv")
+             shares_off = "Brand shares not summing to 1 (within 0.01)")
 ```
 
-The data have `r nrow(soap_raw)` households and no empty cells, and all but `r nrow(share_exceptions)` households have nine brand shares that add up to 1 within 0.01 (the exceptions are listed in @sec-q1b). A clean-looking table does **not** mean there is no missing information. The data guide says a code of 0 means "not specified" for the demographic variables, so the missing values are hidden inside the numbers. Section @sec-prep finds and handles them.
+@tbl-first-look shows that the data have `r nrow(soap_raw)` households and no empty cells, and all but `r nrow(share_exceptions)` households have nine brand shares that add up to 1 within 0.01 (the exceptions are listed in the [appendix](#sec-further-checks)). A clean-looking table does **not** mean there is no missing information. The data guide says a code of 0 means "not specified" for the demographic variables, so the missing values are hidden inside the numbers. @sec-prep finds and handles them.

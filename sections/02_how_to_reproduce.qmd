@@ -2,9 +2,9 @@
 
 Every result in this report is calculated by the visible code from the two data files supplied. Follow these steps to rebuild it from the submitted project.
 
-1. **Unzip the project and keep its layout.** The folder contains `ErwynaSooW.Rproj`, a `data/` folder (`bathsoap.csv` and `brand_example.csv`) and a `document/` folder (`ErwynaSooW.qmd`, its rendered HTML and PDF, the bibliography and the stylesheet). Do not move or rename any file.
+1. **Unzip the project and keep its layout.** The folder contains `ErwynaSooW.Rproj`, a `dataset/` folder (`bathsoap.csv` and `brand_example.csv`) and a `document/` folder (`ErwynaSooW.qmd`, its rendered HTML and PDF, the bibliography and the stylesheet). Do not move or rename any file.
 
-2. **Install the software.** You need R, RStudio and the Quarto CLI. The versions that produced this report are below; package versions are listed in the [appendix](#sec-appendix).
+2. **Install the software.** You need R, RStudio and the Quarto CLI. The versions that produced this report are in @tbl-reproduction-software; package versions are listed in the [appendix](#sec-appendix).
 
 ```{r}
 #| label: tbl-reproduction-software
@@ -20,10 +20,10 @@ knitr::kable(tibble::tibble(
 
 3. **Open `ErwynaSooW.Rproj` first.** This sets the working folder to the project root, which `here()` uses to find the data. Do not change the working directory to `document/`.
 
-4. **Install `pacman` once.** In the R console run `install.packages("pacman")`. On the first render `pacman::p_load()` installs any other missing package (`tidyverse`, `tidymodels`, `here`, `janitor`, `gt`, `scales`, `patchwork`, `factoextra`, `cluster`, `dendextend`), so the first render needs internet access. Figures use the `ragg` device; if it is missing, run `install.packages("ragg")`.
+4. **Install `pacman` once.** In the R console run `install.packages("pacman")`. On the first render `pacman::p_load()` installs any other missing package (`tidyverse`, `tidymodels`, `here`, `janitor`, `gt`, `scales`, `patchwork`, `factoextra`, `cluster`, `mclust`, `moments`), so the first render needs internet access. Figures use the `ragg` device; if it is missing, run `install.packages("ragg")`.
 
 5. **Render.** Open `document/ErwynaSooW.qmd` and press **Render**, or run `quarto render document/ErwynaSooW.qmd` in a terminal at the project root. This writes `ErwynaSooW.html` (the main document) and `ErwynaSooW.pdf` (made with Typst, so no LaTeX installation is needed).
 
-6. **Repeatable results.** The setup chunk sets `set.seed(55789)`, the last five digits of the group leader's student ID. Hierarchical clustering and PCA are not random, so the seed only matters for the simulated p-values and any re-run with random starts. With the same data and package versions every number in the report repeats exactly.
+6. **Repeatable results.** The setup chunk sets `set.seed(55789)`, the last five digits of the group leader's student ID. Hierarchical clustering and PCA are not random, so the seed only matters for the simulated p-values and the k-means check, which uses random starts. With the same data and package versions every number in the report repeats exactly.
 
-7. **If something fails.** If `quarto` is not recognised, install the Quarto CLI and reopen RStudio. If a package fails to install, run `install.packages("name")` once and render again. If a data file cannot be found, check that you opened the `.Rproj` file and that the `data/` folder sits next to it.
+7. **If something fails.** If `quarto` is not recognised, install the Quarto CLI and reopen RStudio. If a package fails to install, run `install.packages("name")` once and render again. If a data file cannot be found, check that you opened the `.Rproj` file and that the `dataset/` folder sits next to it.
