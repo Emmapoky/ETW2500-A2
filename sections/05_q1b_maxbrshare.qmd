@@ -16,7 +16,7 @@ soap <- soap_raw |>
   ungroup()
 ```
 
-The maximum is taken row by row because each household needs its own value; the maximum of a whole column would describe one brand across all households instead. `BrOthers` is excluded because it pools many small brands, so a high `BrOthers` share does not show loyalty to any single brand.
+The maximum is taken row by row because each household needs its own value. The maximum of a whole column would describe one brand across all households instead. `BrOthers` is excluded because it pools many small brands, so a high `BrOthers` share does not show loyalty to any single brand.
 
 ## Checking the variable (item 5)
 
