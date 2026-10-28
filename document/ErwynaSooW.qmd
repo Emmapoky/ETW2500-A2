@@ -8,7 +8,6 @@ format:
   html:
     theme: cosmo
     css: style.css
-    title-block-banner: true
     toc: true
     toc-depth: 3
     toc-location: left

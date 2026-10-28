@@ -1,51 +1,72 @@
-/* Report styling (Erwyna). Purple palette from our Assignment 2 deck. */
+/* Report styling (Erwyna). Flat pastel colours, no gradients. The six
+   pastels are the same ones as the chart palette `pal` in section 03, so
+   the text and the figures match. Text stays dark so it reads easily. */
 :root {
-  --deep: #330C4B; --iris: #51017C; --eminence: #6C3082;
-  --lavender: #B9379D; --fawn: #E3A88A; --paper: #FCFAFD;
+  --ink: #34304A;       /* body text and headings */
+  --ink-soft: #6B6680;  /* captions, subtitles */
+  --lavender: #C9BEEB;  /* main accent */
+  --blush: #F5C6D0;
+  --mint: #BFE3D3;
+  --peach: #F8D3B5;
+  --sky: #BCD6EE;
+  --butter: #F3E5AB;
+  --wash: #F7F5FC;      /* very light lavender for code and table heads */
+  --paper: #FFFFFF;
+  --rule: #E6E1F2;
 }
 
-body { font-size: 17px; line-height: 1.65; color: #2B1238; background: var(--paper); }
+body { font-size: 17px; line-height: 1.7; color: var(--ink); background: var(--paper); }
 
-/* Title banner */
-.quarto-title-banner {
-  background: linear-gradient(135deg, var(--deep) 0%, var(--iris) 55%, var(--lavender) 100%);
-  color: #fff; padding-bottom: 2.2rem;
-}
-.quarto-title-banner h1.title, .quarto-title-banner .title { color: #fff !important; font-weight: 800;
-  letter-spacing: -0.01em; border-bottom: none; margin-top: 0.4em; }
-.quarto-title-banner .subtitle { color: #F3E6F7 !important; font-weight: 400; }
-.quarto-title-banner .quarto-title-meta-heading,
-.quarto-title-banner .quarto-title-meta-contents { color: #fff !important; }
+/* Title block: plain, like Assignment 1, with one soft rule underneath */
+#title-block-header { border-bottom: 3px solid var(--lavender); padding-bottom: 0.8em;
+                      margin-bottom: 1.6em; }
+#title-block-header .title { color: var(--ink); font-weight: 750; letter-spacing: -0.01em; }
+#title-block-header .subtitle { color: var(--ink-soft); font-weight: 400; }
+.quarto-title-meta-heading { color: var(--ink-soft); }
 
-/* Headings */
-h1, h2, h3, h4 { color: var(--deep); font-weight: 700; }
+/* Headings: dark text, pastel underline and marker */
+h1, h2, h3, h4 { color: var(--ink); font-weight: 700; }
 h1 { border-bottom: 3px solid var(--lavender); padding-bottom: 0.25em; margin-top: 2.6em; }
 h2 { margin-top: 1.8em; }
-h2::before { content: ""; display: inline-block; width: 6px; height: 0.9em;
-             background: var(--lavender); margin-right: 0.5em; border-radius: 2px;
+h2::before { content: ""; display: inline-block; width: 7px; height: 0.9em;
+             background: var(--blush); margin-right: 0.5em; border-radius: 3px;
              vertical-align: -0.05em; }
+h3 { color: var(--ink-soft); }
 
 /* Links and table of contents */
-a { color: var(--iris); }
-#TOC .nav-link.active, #TOC .nav-link:hover { color: var(--lavender) !important; }
+a { color: #5F4FA8; text-decoration-color: var(--lavender); }
+a.quarto-xref { font-weight: 600; }
 #TOC { font-size: 0.92em; }
+#TOC .nav-link.active { color: var(--ink) !important; background: var(--wash);
+                        border-left-color: var(--lavender) !important; }
+#TOC .nav-link:hover { color: #5F4FA8 !important; }
 
 /* Code */
-div.sourceCode { border-left: 4px solid var(--eminence); border-radius: 6px;
-                 background: #F6F0F9 !important; }
+div.sourceCode { border: 1px solid var(--rule); border-left: 4px solid var(--lavender);
+                 border-radius: 8px; background: var(--wash) !important; }
 pre code { font-size: 0.83em; }
-code:not(pre code) { color: var(--iris); background: #F3EAF7; padding: 0.05em 0.3em; border-radius: 4px; }
+code:not(pre code) { color: var(--ink); background: var(--wash); padding: 0.05em 0.35em;
+                     border-radius: 4px; border: 1px solid var(--rule); }
+.code-copy-button { color: var(--ink-soft) !important; }
 
 /* Output tables and figures */
 table { font-size: 0.92em; }
+table.table thead th { background: var(--wash); color: var(--ink); border-bottom: 2px solid var(--lavender); }
 .gt_table { margin: 0.6em auto 0.4em auto !important; }
-.figure, .quarto-figure { margin: 1.2em 0; }
-figcaption, .table-caption, caption { color: #5a4466; font-size: 0.9em; font-style: italic; }
+.figure, .quarto-figure { margin: 1.4em 0; }
+.quarto-figure img { border-radius: 8px; }
+figcaption, .table-caption, caption, .quarto-float-caption {
+  color: var(--ink-soft); font-size: 0.9em; font-style: italic; }
 
-/* Callouts */
-.callout { border-radius: 10px; }
-.callout-tip { border-left-color: var(--lavender) !important; background: #FBF3FA; }
-.callout-tip .callout-header, .callout-tip .callout-title-container { color: var(--deep); }
+/* Callouts: one pastel per callout type, flat fill */
+.callout { border-radius: 10px; border: 1px solid var(--rule) !important; }
+.callout-tip { border-left: 5px solid var(--mint) !important; background: #F4FBF8; }
+.callout-note { border-left: 5px solid var(--sky) !important; background: #F4F8FD; }
+.callout-important, .callout-warning { border-left: 5px solid var(--peach) !important; background: #FEF8F3; }
+.callout .callout-header { background: transparent !important; color: var(--ink); }
+.callout-icon::before { filter: grayscale(0.4); }
 
 /* Member table under the title */
-#title-block-header + p + table, .member-table table { max-width: 520px; }
+.member-table table { max-width: 520px; }
+
+hr { border-top: 2px solid var(--rule); opacity: 1; }
