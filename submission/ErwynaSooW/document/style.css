@@ -157,7 +157,7 @@ div.cell-output-stdout pre code, .session-output code {
   border-left: 6px solid #E0649A !important; border-radius: 14px; padding: 6px 10px; }
 
 /* Bibliography: rounded box so it does not melt into the page */
-#refs { background: #FFFFFF; border: 1px solid var(--rule); border-left: 6px solid var(--violet);
+#refs { background: #FBE0EA; border: 1px solid #F0B3CB; border-left: 6px solid #E0649A;
   border-radius: 14px; padding: 14px 22px; }
 #refs .csl-entry { margin: 0.5em 0; }
 
@@ -169,10 +169,27 @@ div.cell-output-stdout pre code, .session-output code {
 
 /* ---- Contents toggle: the button hides the panel and the report stays centred ---- */
 #toc-toggle { position: fixed; top: 10px; left: 10px; z-index: 1000; cursor: pointer;
-  background: #FFFFFF; color: var(--ink); border: 1px solid #E8B7CE; border-radius: 999px;
-  padding: 5px 14px; font-size: 0.8rem; font-weight: 600; box-shadow: 0 1px 4px rgba(46,38,80,0.15); }
-#toc-toggle:hover { background: #FAD6E5; }
-body.toc-closed #quarto-sidebar, body.toc-closed #quarto-sidebar-toc-left { display: none !important; }
+  display: inline-flex; align-items: center; gap: 9px; color: var(--ink);
+  background: #FFFFFF; border: 1px solid #E8B7CE; border-radius: 999px;
+  padding: 5px 16px 5px 12px; font-size: 0.8rem; font-weight: 600; box-shadow: 0 1px 4px rgba(46,38,80,0.15);
+  transition: background-color 0.35s ease, border-color 0.35s ease; }
+#toc-toggle:hover { border-color: #E0649A; }
+body.toc-closed #toc-toggle { background: #FAD6E5; }
+/* the arrow is two bars: they swing through a straight line to flip from < to > */
+#toc-toggle .toc-ico { position: relative; width: 12px; height: 12px; flex: none; }
+#toc-toggle .toc-ico i { position: absolute; left: calc(50% - 4px); top: calc(50% - 1px); width: 8px; height: 2px;
+  border-radius: 2px; background: currentColor; transition: transform 0.4s ease; }
+#toc-toggle .toc-ico i:first-child { transform: translateY(-2.8px) rotate(-45deg); }
+#toc-toggle .toc-ico i:last-child  { transform: translateY(2.8px) rotate(45deg); }
+body.toc-closed #toc-toggle .toc-ico i:first-child { transform: translateY(-2.8px) rotate(45deg); }
+body.toc-closed #toc-toggle .toc-ico i:last-child  { transform: translateY(2.8px) rotate(-45deg); }
+/* both labels share one cell, so the button never changes width; they cross-fade */
+#toc-toggle .toc-lbls { display: inline-grid; }
+#toc-toggle .toc-lbls span { grid-area: 1 / 1; text-align: left; transition: opacity 0.35s ease; }
+#toc-toggle .toc-show, body.toc-closed #toc-toggle .toc-hide { opacity: 0; }
+body.toc-closed #toc-toggle .toc-show { opacity: 1; }
+#quarto-sidebar-toc-left { transition: transform 0.4s ease, opacity 0.3s ease; padding-top: 52px; }
+body.toc-closed #quarto-sidebar-toc-left { transform: translateX(-110%); opacity: 0; pointer-events: none; }
 body.toc-closed #quarto-content > main.content { grid-column: screen-start / screen-end !important; }
 
 /* ---- Each top-level section is its own card, so sections are clearly separate ---- */
@@ -195,8 +212,8 @@ div.sourceCode:has(pre > code > span:only-child) .code-copy-button { top: 50% !i
 div.sourceCode:has(pre > code > span:only-child) pre { padding-right: 48px; }
 
 /* ---- References: the hanging indent stays inside the box ---- */
-#refs { padding: 16px 26px 16px 26px; overflow: hidden; }
-#refs .csl-entry { padding-left: 2em !important; text-indent: -2em !important; margin: 0.55em 0 !important; }
+#refs { padding: 6px 10px 6px 10px; overflow: hidden; }
+#refs .csl-entry { padding-left: 2em !important; text-indent: -2em !important; margin: 0.55em 1em 0.55em 0.8em !important; }
 
 /* Session information box: needs the extra specificity to beat Quarto's own output style */
 div.cell-output.cell-output-stdout pre.session-output { background-color: #FBD9E6 !important;
@@ -204,10 +221,15 @@ div.cell-output.cell-output-stdout pre.session-output { background-color: #FBD9E
 div.cell-output.cell-output-stdout pre.session-output code { background: transparent !important; color: var(--ink) !important; }
 
 /* The contents button must not be stretched by the centring rule below */
-#quarto-content > main.content > #toc-toggle { width: auto !important; margin: 0 !important; }
 
 /* No rule through the spanner label or under the column numbers: the header is one filled box */
 div.gt_column_spanner, .gt_table div.gt_column_spanner, .gt_table th.gt_columns_bottom_border,
 .gt_table th.gt_col_heading, .gt_table th.gt_column_spanner_outer {
   border-bottom-width: 0 !important; border-bottom-style: none !important; border-top-width: 0 !important;
   border-left-width: 0 !important; border-right-width: 0 !important; }
+
+/* Code menu: a clear pink button instead of a faint text link */
+.code-tools-button { background: #FAD6E5 !important; color: var(--ink) !important; border: 1px solid #E8B7CE !important;
+  border-radius: 999px !important; padding: 5px 16px !important; font-weight: 600; font-size: 0.85rem !important;
+  transition: background-color 0.25s ease, border-color 0.25s ease; }
+.code-tools-button:hover { background: #F5BCD4 !important; border-color: #E0649A !important; }

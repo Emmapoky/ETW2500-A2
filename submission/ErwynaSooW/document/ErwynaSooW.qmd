@@ -54,15 +54,27 @@ bibliography: references.bib
 | Naidu Shrrii Shivanie | 35395346 |
 
 ```{=html}
-<button id="toc-toggle" type="button" aria-expanded="true">Hide contents</button>
+<button id="toc-toggle" type="button" aria-expanded="true"><span class="toc-ico" aria-hidden="true"><i></i><i></i></span><span class="toc-lbls"><span class="toc-hide">Hide contents</span><span class="toc-show">Show contents</span></span></button>
 <script>
 (function () {
   var b = document.getElementById("toc-toggle");
+  var main = document.querySelector("#quarto-content > main.content");
   if (!b) return;
+  // keep the button outside the report so the slide below never moves it
+  document.body.appendChild(b);
   b.addEventListener("click", function () {
+    var before = main ? main.getBoundingClientRect().left : 0;
     var closed = document.body.classList.toggle("toc-closed");
-    b.textContent = closed ? "Show contents" : "Hide contents";
     b.setAttribute("aria-expanded", String(!closed));
+    if (main) {
+      // the report is re-centred at once; slide it from where it was
+      var dx = before - main.getBoundingClientRect().left;
+      main.style.transition = "none";
+      main.style.transform = "translateX(" + dx + "px)";
+      void main.offsetWidth;
+      main.style.transition = "transform 0.4s ease";
+      main.style.transform = "";
+    }
   });
 })();
 </script>
@@ -2297,8 +2309,9 @@ This is the full record of the R session that produced the report: the R version
 - Gemini: "Refine this R code snippet using ggplot2 and gt to ensure clean presentation and consistent visual themes across the document."
 
 **Responsibility.** As a team, we maintain full responsibility for the originality, academic integrity, accuracy, code functionality, and overall quality of this submission, including all analysis, interpretations, and final recommendations.
+:::
 
-# References {.unnumbered #sec-references}
+# References {.unnumbered #sec-references} 
 
 ::: {#refs}
 :::
