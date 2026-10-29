@@ -61,7 +61,7 @@ filled in from tools/member_ids.csv (Erwyna's computer only, git-ignored) by too
 | Taabish Farooq Bhat | withheld |
 | Nandhini Hariharan | withheld |
 | Riely Hariri Bin Rafliz | withheld |
-| Naidu Shrrii Shivanie | withheld |
+| Shrrii Shivanie Naidu | withheld |
 
 ```{=html}
 <button id="toc-toggle" type="button" aria-expanded="true">Hide contents</button>

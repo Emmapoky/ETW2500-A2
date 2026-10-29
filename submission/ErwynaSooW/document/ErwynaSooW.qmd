@@ -51,7 +51,7 @@ bibliography: references.bib
 | Taabish Farooq Bhat | 35473932 |
 | Nandhini Hariharan | 36296864 |
 | Riely Hariri Bin Rafliz | 36273163 |
-| Naidu Shrrii Shivanie | 35395346 |
+| Shrrii Shivanie Naidu | 35395346 |
 
 ```{=html}
 <button id="toc-toggle" type="button" aria-expanded="true"><span class="toc-ico" aria-hidden="true"><i></i><i></i></span><span class="toc-lbls"><span class="toc-hide">Hide contents</span><span class="toc-show">Show contents</span></span></button>
@@ -1324,6 +1324,9 @@ stability_runs <- map_dbl(1:10, \(i) {
   tab <- table(ward_groups, km$cluster)
   sum(apply(tab, 1, max)) / length(ward_groups)
 })
+
+# Range of agreement across the 10 k-means runs, used for the stability result in the text
+summary(stability_runs)
 ```
 
 ```{r}
@@ -2297,7 +2300,7 @@ This is the full record of the R session that produced the report: the R version
 # Acknowledgement of AI Use {.unnumbered #sec-ai-use}
 
 ::: {.callout-note appearance="simple" icon="false" .ai-box}
-**AI tools used.** Gemini (Google),  model Gemini 3.6 Flash.
+**AI tools used.** Gemini (Google), model Gemini 3.6 Flash. 
 
 **How they were used.** Generative AI was used strictly in a guided manner to assist with code structure refinement, formatting, and language polishing. Specifically, it was used to help format and optimize R/Quarto scripts (e.g., verifying recipes preprocessing workflows, tuning ggplot2 visual themes, and streamlining data transformations) and to improve prose clarity, grammar, and typography in the report. AI was not used to write the analytical narrative, perform core reasoning, or generate data.
 
@@ -2311,7 +2314,7 @@ This is the full record of the R session that produced the report: the R version
 **Responsibility.** As a team, we maintain full responsibility for the originality, academic integrity, accuracy, code functionality, and overall quality of this submission, including all analysis, interpretations, and final recommendations.
 :::
 
-# References {.unnumbered #sec-references} 
+# References {.unnumbered #sec-references}
 
 ::: {#refs}
 :::
