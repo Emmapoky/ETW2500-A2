@@ -16,7 +16,7 @@ stopifnot(isTRUE(all.equal(soap$MaxBrShare, max_pmax)))
 n_same <- sum(near(soap$MaxBrShare, max_pmax))
 ```
 
-The vectorised `pmax()` gives the same value for all `r n_same` households (the `stopifnot()` check would stop the render otherwise). It is the more efficient form because it avoids creating a group for each row; `rowwise()` is kept above because it shows the row-by-row logic most clearly.
+The vectorised `pmax()` gives the same value for all `r n_same` households (the `stopifnot()` check would stop the render otherwise). It is the more efficient form because it avoids creating a group for each row. The `rowwise()` approach is kept above because it shows the row-by-row logic most clearly.
 
 ### Question 1(b): how concentration is spread {.unnumbered}
 
@@ -61,7 +61,7 @@ share_exceptions |>
 
 ### Question 2(e): where do the differences come from? {.unnumbered}
 
-The tests above say *whether* the segments differ; this check says *which* segment and class cause it, so a client knows where to act. For SEC and AGE, the **standardised residual** of each cell compares the number of households in that segment and class with the number expected if every segment had the same mix. A value beyond ±2 marks a clear excess (positive) or shortfall (negative). For HS, **pairwise Wilcoxon tests** compare every pair of segments, with the **Holm adjustment** keeping the overall chance of a false difference at 5% across all the comparisons.
+The tests above say *whether* the segments differ. This check says *which* segment and class cause it, so a client knows where to act. For SEC and AGE, the **standardised residual** of each cell compares the number of households in that segment and class with the number expected if every segment had the same mix. A value beyond ±2 marks a clear excess (positive) or shortfall (negative). For HS, **pairwise Wilcoxon tests** compare every pair of segments, with the **Holm adjustment** keeping the overall chance of a false difference at 5% across all the comparisons.
 
 ```{r}
 #| label: fig-profile-residuals
@@ -74,7 +74,7 @@ The tests above say *whether* the segments differ; this check says *which* segme
 resid_df <- function(data, var) {
   d   <- data |> filter(!is.na(.data[[var]]))
   tab <- table(segment = d$segment, level = d[[var]])
-  # Simulated p-value, so no small-cell warning; only the residuals are used
+  # Simulated p-value, so no small-cell warning. Only the residuals are used
   res <- chisq.test(tab, simulate.p.value = TRUE, B = 2000)
   as.data.frame.table(res$stdres, responseName = "resid") |>
     mutate(variable = var)
@@ -150,7 +150,7 @@ all_demo_v <- map_dfr(demo_cols, \(v) {
     fct_lump_min(factor(d$value), min = 20)
   }
   tab <- table(d$segment, grp)
-  # Simulated p-value, so no small-cell warning; only the statistic is used
+  # Simulated p-value, so no small-cell warning. Only the statistic is used
   res <- chisq.test(tab, simulate.p.value = TRUE, B = 2000)
   tibble(variable = v, n = nrow(d),
          cramers_v = cramers_v(tab, unname(res$statistic)),
