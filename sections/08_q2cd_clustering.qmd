@@ -159,6 +159,9 @@ stability_runs <- map_dbl(1:10, \(i) {
   tab <- table(ward_groups, km$cluster)
   sum(apply(tab, 1, max)) / length(ward_groups)
 })
+
+# Range of agreement across the 10 k-means runs, used for the stability result in the text
+summary(stability_runs)
 ```
 
 ```{r}
