@@ -10,7 +10,6 @@ document/*_files/
 document/.quarto/
 .quarto/
 /.quarto/
-# The submission folder is rebuilt by tools/make_submission.R
-submission/
+# The submission folder is rebuilt by tools/make_submission.R and is committed so the team can see it
 .DS_Store
 tools/member_ids.csv
