@@ -20,19 +20,21 @@ p_install(mclust, force = FALSE)
 # makes every result in this report repeat exactly.
 set.seed(55789)
 
-# One flat pastel palette and one chart theme for the whole report, so every
+# One flat purple and pink palette and one chart theme for the whole report, so every
 # figure matches the HTML styling (document/style.css uses the same colours).
 # pal[1] is the main colour and pal[4] its opposite in the diverging scales.
-pal      <- c("#B4A7E5", "#F2A7B8", "#F6BE95", "#9EC3E8", "#9FD8C0", "#EED67F")
-pal_grey <- "#D8D5E0"   # neutral, for "not selected" bars
+pal      <- c("#8A77DD", "#F28DB5", "#7DB3E8", "#F1CF68", "#8FD3BD", "#C9A0E8")
+pal_grey <- "#D9D3EA"   # neutral, for "not selected" bars
 pal_ink  <- "#34304A"   # text and arrows
+pal_lo   <- "#A9CDF0"   # light ends of the diverging scales, so dark text
+pal_hi   <- "#E7A0C0"   # stays readable on top of every cell
 theme_set(
   theme_minimal(base_size = 13) +
     theme(plot.title = element_text(face = "bold", colour = pal_ink),
           text = element_text(colour = pal_ink),
           axis.text = element_text(colour = "#6B6680"),
           panel.grid.minor = element_blank(),
-          panel.grid.major = element_line(colour = "#EEEBF5"),
+          panel.grid.major = element_line(colour = "#ECE6F7"),
           legend.position = "bottom")
 )
 ```

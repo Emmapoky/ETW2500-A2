@@ -1,24 +1,32 @@
-/* Report styling (Erwyna). Flat pastel colours, no gradients. The six
-   pastels are the same ones as the chart palette `pal` in section 03, so
-   the text and the figures match. Text stays dark so it reads easily. */
+/* Report styling (Erwyna). Purple and pink, flat colours, no gradients. The
+   accents match the chart palette `pal` in section 03, so the text and the
+   figures agree. The page sits on a soft lavender background and the text
+   stays dark so it reads easily. */
 :root {
-  --ink: #34304A;       /* body text and headings */
-  --ink-soft: #6B6680;  /* captions, subtitles */
-  --lavender: #C9BEEB;  /* main accent */
-  --blush: #F5C6D0;
-  --mint: #BFE3D3;
-  --peach: #F8D3B5;
-  --sky: #BCD6EE;
-  --butter: #F3E5AB;
-  --wash: #F7F5FC;      /* very light lavender for code and table heads */
+  --ink: #2E2650;       /* body text and headings */
+  --ink-soft: #4F4572;  /* captions, subtitles */
+  --violet: #8A77DD;    /* main accent (bars, rules) */
+  --violet-text: #4B2FA0; /* purple for text: readable on lavender */
+  --lavender: #CFC4F2;
+  --pink: #F28DB5;
+  --blush: #F9CADB;
+  --blue: #C5DDF5;
+  --yellow: #F8E7A8;
+  --mint: #C6EBDD;
+  --page: #EFE9FB;      /* page background */
+  --card: #FBF9FF;      /* very light lavender for code and table heads */
   --paper: #FFFFFF;
-  --rule: #E6E1F2;
+  --rule: #DDD4F2;
+  --pink-tint: #F9DCE8;  /* table body */
+  --pink-head: #E7A1BE;  /* table header */
+  --pink-row: #F3C8DA;   /* alternate row */
 }
 
-body { font-size: 17px; line-height: 1.7; color: var(--ink); background: var(--paper); }
+html, body { background: var(--page); }
+body { font-size: 17px; line-height: 1.7; color: var(--ink); background: var(--page); }
 
 /* Title block: plain, like Assignment 1, with one soft rule underneath */
-#title-block-header { border-bottom: 3px solid var(--lavender); padding-bottom: 0.8em;
+#title-block-header { border-bottom: 3px solid var(--violet); padding-bottom: 0.8em;
                       margin-bottom: 1.6em; }
 #title-block-header .title { color: var(--ink); font-weight: 750; letter-spacing: -0.01em; }
 #title-block-header .subtitle { color: var(--ink-soft); font-weight: 400; }
@@ -26,32 +34,32 @@ body { font-size: 17px; line-height: 1.7; color: var(--ink); background: var(--p
 
 /* Headings: dark text, pastel underline and marker */
 h1, h2, h3, h4 { color: var(--ink); font-weight: 700; }
-h1 { border-bottom: 3px solid var(--lavender); padding-bottom: 0.25em; margin-top: 2.6em; }
-h2 { margin-top: 1.8em; }
-h2::before { content: ""; display: inline-block; width: 7px; height: 0.9em;
-             background: var(--blush); margin-right: 0.5em; border-radius: 3px;
-             vertical-align: -0.05em; }
+h1 { border-bottom: 3px solid var(--violet); padding-bottom: 0.25em; margin-top: 2.6em; }
+h2 { margin-top: 1.8em; padding-bottom: 0.2em; border-bottom: 2px solid var(--rule); }
 h3 { color: var(--ink-soft); }
 
 /* Links and table of contents */
-a { color: #5F4FA8; text-decoration-color: var(--lavender); }
+a { color: var(--violet-text); text-decoration-color: var(--violet); }
 a.quarto-xref { font-weight: 600; }
 #TOC { font-size: 0.92em; }
-#TOC .nav-link.active { color: var(--ink) !important; background: var(--wash);
-                        border-left-color: var(--lavender) !important; }
-#TOC .nav-link:hover { color: #5F4FA8 !important; }
+#TOC .nav-link.active { color: var(--ink) !important; background: var(--card);
+                        border-left-color: var(--violet) !important; }
+#TOC .nav-link:hover { color: var(--violet-text) !important; }
 
 /* Code */
-div.sourceCode { border: 1px solid var(--rule); border-left: 4px solid var(--lavender);
-                 border-radius: 8px; background: var(--wash) !important; }
+div.sourceCode { border: 1px solid #3F3B57; border-left: 4px solid var(--violet);
+                 border-radius: 8px; background: #2D2B3A !important; }
+div.sourceCode pre, div.sourceCode pre code { background: transparent !important; color: #FFFFFF; }
 pre code { font-size: 0.83em; }
-code:not(pre code) { color: var(--ink); background: var(--wash); padding: 0.05em 0.35em;
-                     border-radius: 4px; border: 1px solid var(--rule); }
-.code-copy-button { color: var(--ink-soft) !important; }
+code:not(pre code), p code, li code, td code, th code, h1 code, h2 code, h3 code {
+  color: #4A2F80 !important; background: #F3EDFD !important; padding: 0.05em 0.35em;
+  border-radius: 4px; border: 1px solid #D8CBF2; }
+pre code, div.sourceCode code { padding: 0; border: 0; border-radius: 0; }
+.code-copy-button { color: #F3F0FB !important; }
 
 /* Output tables and figures */
 table { font-size: 0.92em; }
-table.table thead th { background: var(--wash); color: var(--ink); border-bottom: 2px solid var(--lavender); }
+table.table thead th { background: var(--pink-head); color: var(--ink); border-bottom: 2px solid var(--violet); }
 .gt_table { margin: 0.6em auto 0.4em auto !important; }
 .figure, .quarto-figure { margin: 1.4em 0; }
 .quarto-figure img { border-radius: 8px; }
@@ -60,9 +68,9 @@ figcaption, .table-caption, caption, .quarto-float-caption {
 
 /* Callouts: one pastel per callout type, flat fill */
 .callout { border-radius: 10px; border: 1px solid var(--rule) !important; }
-.callout-tip { border-left: 5px solid var(--mint) !important; background: #F4FBF8; }
-.callout-note { border-left: 5px solid var(--sky) !important; background: #F4F8FD; }
-.callout-important, .callout-warning { border-left: 5px solid var(--peach) !important; background: #FEF8F3; }
+.callout-tip { border-left: 5px solid var(--mint) !important; background: var(--paper); }
+.callout-note { border-left: 5px solid var(--violet) !important; background: var(--paper); }
+.callout-important, .callout-warning { border-left: 5px solid var(--pink) !important; background: var(--paper); }
 .callout .callout-header { background: transparent !important; color: var(--ink); }
 .callout-icon::before { filter: grayscale(0.4); }
 
@@ -70,3 +78,58 @@ figcaption, .table-caption, caption, .quarto-float-caption {
 .member-table table { max-width: 520px; }
 
 hr { border-top: 2px solid var(--rule); opacity: 1; }
+
+/* Quarto wrappers must not repaint the page white */
+#quarto-content, #quarto-document-content, .page-columns, main.content { background: transparent; }
+.quarto-figure img { background: var(--paper); }
+
+/* Every table is pink: gt tables and plain markdown tables alike */
+table.table, table.caption-top { background-color: var(--pink-tint) !important; }
+.table > :not(caption) > * > *:not([style*="background-color"]) { background-color: var(--pink-tint) !important; }
+table.table thead th, .gt_col_heading, .gt_column_spanner, .gt_heading { background-color: var(--pink-head) !important; color: var(--ink) !important; }
+.gt_table td, .gt_table .gt_row { color: var(--ink) !important; }
+.gt_table { background-color: var(--pink-tint) !important; border-color: var(--rule) !important; }
+.gt_table td:not([style*="background-color"]), .gt_table .gt_stub { background-color: var(--pink-tint) !important; }
+.gt_table tbody tr:nth-child(even) td:not([style*="background-color"]), table.table tbody tr:nth-child(even) > *:not([style*="background-color"]) { background-color: var(--pink-row) !important; }
+
+
+/* Dracula comments are too dim on the dark block, so lighten them */
+div.sourceCode code span.co { color: #CDD5F5 !important; }
+
+/* Section numbers (5.3, 8.2, ...) are purple, not the grey highlight Quarto gives them */
+.header-section-number, span.header-section-number {
+  color: var(--violet-text) !important; background: transparent !important;
+  font-weight: 700; }
+h1 .header-section-number, h2 .header-section-number, h3 .header-section-number {
+  color: var(--violet-text) !important; }
+
+/* Executive summary: bright light pink so it stands out from the body */
+.callout.exec-summary { background: #FFD9E8 !important; border: 1px solid #F2A7C6 !important;
+  border-left: 6px solid #E0649A !important; }
+.callout.exec-summary .callout-body-container, .callout.exec-summary .callout-content { color: var(--ink); }
+
+
+/* Table headers: every header cell (column labels, spanners, row-label column)
+   is the same pink. gt wraps a spanner label in an inner div, so that div is
+   made transparent and only keeps a thin underline to show the span. */
+table.gt_table.table > thead > tr > th,
+table.gt_table.table > thead > tr > th.gt_col_heading,
+table.gt_table.table > thead > tr > th.gt_column_spanner_outer {
+  background-color: var(--pink-head) !important; color: var(--ink) !important;
+  font-weight: 600; vertical-align: bottom; }
+table.gt_table .gt_column_spanner {
+  background-color: transparent !important; border-bottom: 2px solid var(--ink-soft) !important;
+  padding: 0.35em 0 !important; font-weight: 600; }
+table.gt_table.table > thead > tr:last-child > th { border-bottom: 2px solid var(--violet) !important; }
+
+/* Console output (sessionInfo and similar): a light card with wrapped lines,
+   so long lines are not cut off and the text is easy to scan */
+div.cell-output-stdout pre, pre.session-output, .session-output pre {
+  background: var(--card) !important; color: var(--ink) !important;
+  border: 1px solid var(--rule); border-left: 4px solid var(--violet);
+  border-radius: 8px; padding: 1em 1.2em; margin: 0.8em 0 1.2em 0;
+  white-space: pre-wrap !important; word-break: break-word; overflow-x: hidden;
+  font-size: 0.86em; line-height: 1.6; }
+div.cell-output-stdout pre code, .session-output code {
+  color: var(--ink) !important; background: transparent !important;
+  white-space: pre-wrap !important; font-size: 1em; }

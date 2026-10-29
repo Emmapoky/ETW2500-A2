@@ -248,7 +248,7 @@ ggplot(cor_pairs, aes(var1, var2, fill = r)) +
   geom_text(aes(label = sprintf("%.2f", r), colour = abs(r) > 0.6), size = 3.6,
             show.legend = FALSE) +
   scale_colour_manual(values = c("TRUE" = pal_ink, "FALSE" = pal_ink)) +
-  scale_fill_gradient2(low = pal[4], mid = "white", high = pal[1],
+  scale_fill_gradient2(low = pal_lo, mid = "white", high = pal_hi,
                        limits = c(-1, 1), name = "Correlation") +
   scale_y_discrete(limits = rev(cluster_vars)) +
   labs(title = "No pair of the six variables is strongly correlated", x = NULL,

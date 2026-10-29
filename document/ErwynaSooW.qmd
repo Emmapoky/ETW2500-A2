@@ -7,6 +7,7 @@ date-format: "D MMMM YYYY"
 format:
   html:
     theme: cosmo
+    highlight-style: dracula
     css: style.css
     toc: true
     toc-depth: 3

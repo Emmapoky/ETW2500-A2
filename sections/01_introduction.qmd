@@ -1,6 +1,6 @@
 # Introduction {#sec-intro}
 
-::: {.callout-tip appearance="simple" icon="false"}
+::: {.callout-tip appearance="simple" icon="false" .exec-summary}
 ## Executive summary
 
 - **Six behavioural segments.** Ward's hierarchical clustering on six purchase variables (volume, frequency, two promotion shares, number of brands and `MaxBrShare`) splits the households into Small-brand regular-price buyers, Heavy multi-brand shoppers, Loyal regular-price buyers, Promo-6 buyers, Loyal promotion buyers and Light occasional buyers (sizes in @tbl-segment-means).
