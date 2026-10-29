@@ -53,6 +53,21 @@ bibliography: references.bib
 | Riely Hariri Bin Rafliz | 36273163 |
 | Naidu Shrrii Shivanie | 35395346 |
 
+```{=html}
+<button id="toc-toggle" type="button" aria-expanded="true">Hide contents</button>
+<script>
+(function () {
+  var b = document.getElementById("toc-toggle");
+  if (!b) return;
+  b.addEventListener("click", function () {
+    var closed = document.body.classList.toggle("toc-closed");
+    b.textContent = closed ? "Show contents" : "Hide contents";
+    b.setAttribute("aria-expanded", String(!closed));
+  });
+})();
+</script>
+```
+
 # Introduction {#sec-intro}
 
 ::: {.callout-tip appearance="simple" icon="false" .exec-summary}
@@ -144,6 +159,11 @@ p_install(mclust, force = FALSE)
 # makes every result in this report repeat exactly.
 set.seed(55789)
 
+# gt's default font stack ends in the CSS word "sans-serif", which the PDF
+# (Typst) build does not know as a font name and warns about. Every table goes
+# through this wrapper so it names one real font instead; HTML looks the same.
+gt <- function(...) gt::opt_table_font(gt::gt(...), font = "Helvetica", add = FALSE)
+
 # One flat purple and pink palette and one chart theme for the whole report, so every
 # figure matches the HTML styling (document/style.css uses the same colours).
 # pal[1] is the main colour and pal[4] its opposite in the diverging scales.
@@ -210,7 +230,7 @@ tibble(
              shares_off = "Brand shares not summing to 1 (within 0.01)")
 ```
 
-@tbl-first-look shows that the data have `r nrow(soap_raw)` households and no empty cells, and all but `r nrow(share_exceptions)` households have nine brand shares that add up to 1 within 0.01 (the exceptions are listed in the [appendix](#sec-further-checks)). A clean-looking table does **not** mean there is no missing information. The data guide says a code of 0 means "not specified" for the demographic variables, so the missing values are hidden inside the numbers. @sec-prep finds and handles them.
+@tbl-first-look shows that the data have `r nrow(soap_raw)` households and no empty cells, and all but `r nrow(share_exceptions)` households have nine brand shares that add up to 1 within 0.01 (the exceptions are listed in @tbl-q1b-share-exceptions). A clean-looking table does **not** mean there is no missing information. The data guide says a code of 0 means "not specified" for the demographic variables, so the missing values are hidden inside the numbers. @sec-prep finds and handles them.
 
 
 # Question 1, Part A: Thinking About Brand Loyalty {#sec-q1a}
@@ -318,7 +338,9 @@ Distance based methods such as cluster analysis group households that are close 
 2. **Loyalty gets far too much weight.** Nine of the columns would describe brand choice, so one idea (loyalty) would outvote volume, frequency and promotions, which would each be a single column.
 3. **The nine shares are not independent.** They add up to 1 (for all but `r nrow(share_exceptions)` households, see @sec-q1b), so any one is almost fixed by the other eight. A distance method counts the same information nine times over.
 
-The next chunk checks this on the real data, using only the households that put **all** of their volume into one named brand.
+### Extra check: the same problem on the real data
+
+The question only asks for an explanation. This check goes further and tests the claim on the real data, using only the households that put **all** of their volume into one named brand.
 
 ```{r}
 #| label: tbl-nine-share-distances
@@ -438,7 +460,62 @@ dist_compare |>
 
 `MaxBrShare` shows how concentrated a household is on its favourite named brand, while `NoBrands` shows how many brands it spreads across, so only together do they separate truly disloyal households from the `r nrow(zero_hh)` single-brand households whose `MaxBrShare` is zero only because their brand is in `BrOthers`.
 
-Further checks on `MaxBrShare` (a second way to compute it, its distribution, and the households whose shares do not sum to 1) are in the [Further checks](#sec-further-checks) part of the appendix.
+The next three sections go beyond the question. They compute `MaxBrShare` a second way, show how concentration is spread and check the households whose shares do not sum to 1.
+
+## Extra check: a second way to compute MaxBrShare
+
+```{r}
+#| label: maxbrshare-second-method
+
+# pmax() works across whole columns at once instead of one row at a time
+max_pmax <- do.call(pmax, select(soap_raw, all_of(brand_cols)))
+# Stops the render if the two methods ever disagree
+stopifnot(isTRUE(all.equal(soap$MaxBrShare, max_pmax)))
+n_same <- sum(near(soap$MaxBrShare, max_pmax))
+```
+
+The vectorised `pmax()` gives the same value for all `r n_same` households (the `stopifnot()` check would stop the render otherwise). It is the more efficient form because it avoids creating a group for each row. The `rowwise()` approach is kept above because it shows the row-by-row logic most clearly.
+
+## Extra check: how concentration is spread
+
+```{r}
+#| label: fig-q1b-maxbrshare
+#| fig-cap: "Left: distribution of MaxBrShare. Right: MaxBrShare against the number of brands bought (line = median at each brand count)."
+#| fig-width: 10
+#| fig-height: 4
+
+p_hist <- ggplot(soap, aes(MaxBrShare)) +
+  geom_histogram(binwidth = 0.05, boundary = 0, fill = pal[1],
+                 colour = "white") +
+  scale_x_continuous(labels = percent) +
+  labs(title = "Concentration on one named brand", x = "MaxBrShare",
+       y = "Households")
+
+p_scatter <- ggplot(soap, aes(NoBrands, MaxBrShare)) +
+  geom_point(colour = pal[1], alpha = 0.7) +
+  stat_summary(fun = median, geom = "line", colour = pal[2], linewidth = 0.9) +
+  scale_y_continuous(labels = percent) +
+  labs(title = "More brands, less concentration", x = "Number of brands bought",
+       y = "MaxBrShare")
+
+p_hist + p_scatter
+```
+
+@fig-q1b-maxbrshare shows the spread. The middle half of households give between `r percent(quantile(soap$MaxBrShare, 0.25), accuracy = 1)` and `r percent(quantile(soap$MaxBrShare, 0.75), accuracy = 1)` of their volume to their favourite named brand, and `r sum(near(soap$MaxBrShare, 1))` give it all of their volume. Concentration falls as the number of brands rises, but households with the same brand count still differ widely, and the single-brand households include both 100% named-brand buyers and the zero group. This is why the two variables are read together.
+
+## Extra check: do the nine shares add up to 1? {#sec-share-check}
+
+`r nrow(soap) - nrow(share_exceptions)` households have nine shares (eight named brands plus `BrOthers`) that sum to 1 within 0.01. The `r nrow(share_exceptions)` exceptions are shown in @tbl-q1b-share-exceptions. They are kept as supplied, because rescaling them would change the measure the question defines. Their `MaxBrShare` values are still valid shares between 0 and 1.
+
+```{r}
+#| label: tbl-q1b-share-exceptions
+#| tbl-cap: "Households whose nine brand shares do not sum to 1 (share_exceptions from @sec-setup)."
+
+share_exceptions |>
+  gt() |>
+  fmt_number(share_total, decimals = 3) |>
+  cols_label(MemberID = "Household ID", share_total = "Sum of the nine shares")
+```
 
 
 # Question 2(a): Choosing the Variables {#sec-q2a}
@@ -490,7 +567,7 @@ soap |>
 
 @tbl-select-variables summarises the six. They cover all four ideas. Volume and frequency have one variable each. Discounts and loyalty have two each, because in each case the two variables measure different things (the evidence is in @tbl-q2a-correlation-pairs and @fig-q2a-correlation).
 
-## Variables that are exact copies of each other
+## Extra check: variables that are exact copies of each other
 
 Several columns are calculated from other columns, so they add nothing new and would count the same behaviour twice in a distance. The chunk below tests each suspected relationship on the data instead of assuming it.
 
@@ -668,7 +745,7 @@ variable_table |>
 | Discounts | `PurPromo6` and `PurOtherPromo` | `PurNoPromo`, one combined promotion share | `PurNoPromo` is redundant. A single combined share (1 minus `PurNoPromo`) would hide that the two promotion types are almost uncorrelated. |
 | Loyalty | `MaxBrShare` and `NoBrands` | The nine brand shares, `BrOthers`, `BrandRuns`, `TransPerRun` | The nine shares measure brand identity. `MaxBrShare` measures concentration, and `NoBrands` covers the households that buy one small brand and have `MaxBrShare` of 0. `BrandRuns` and `TransPerRun` measure switching, but they overlap with `NoTrans`, `NoBrands` and `MaxBrShare` (see @tbl-q2a-dropped-correlation), so they would count the same behaviour twice. |
 
-## Checking the six for multicollinearity
+## Extra check: multicollinearity among the six
 
 Multicollinearity means two variables move together so closely that they carry almost the same information. If it were present, one idea would be counted twice in every distance. The correlation heatmap checks the six before they go on.
 
@@ -1097,12 +1174,14 @@ cluster_data <- soap_prep |> select(all_of(cluster_vars))
 
 # Elbow and silhouette using hierarchical clustering with Ward's linkage
 p_elbow <- fviz_nbclust(cluster_data, FUNcluster = hcut, method = "wss",
-                        k.max = 10, hc_method = "ward.D2") +
+                        k.max = 10, hc_method = "ward.D2",
+                        linecolor = pal[1]) +
   labs(title = "(A) Elbow method")
 
 p_silhouette <- fviz_nbclust(cluster_data, FUNcluster = hcut,
                              method = "silhouette",
-                             k.max = 10, hc_method = "ward.D2") +
+                             k.max = 10, hc_method = "ward.D2",
+                             linecolor = pal[1]) +
   labs(title = "(B) Silhouette method")
 
 p_elbow + p_silhouette
@@ -1195,9 +1274,9 @@ soap_clusters <- tibble(MemberID = soap_prep$MemberID,
 
 Cutting the Ward dendrogram into six clusters gives segments of `r min(table(ward_groups))` to `r max(table(ward_groups))` households. Each segment was given a label based on its average values on the six variables, and each household's cluster and segment name are stored in `soap_clusters` for the rest of the analysis.
 
-### Does the result depend on the method?
+### Extra check: does the result depend on the method?
 
-To check whether the segments depend on the clustering method, k-means was also run with six clusters. K-means assigns each household to the cluster with the nearest centroid, recalculates each centroid as the mean of its cluster, and repeats until the assignments stop changing. Because the starting centroids are random, k-means was run with 25 random starts, keeping the solution with the lowest total within-cluster variation, and the seed is set right before it so the result repeats exactly.
+The question only asks for one clustering. This check goes further and asks whether the segments survive a different method. To check whether the segments depend on the clustering method, k-means was also run with six clusters. K-means assigns each household to the cluster with the nearest centroid, recalculates each centroid as the mean of its cluster, and repeats until the assignments stop changing. Because the starting centroids are random, k-means was run with 25 random starts, keeping the solution with the lowest total within-cluster variation, and the seed is set right before it so the result repeats exactly.
 
 ```{r}
 #| label: tbl-ward-vs-kmeans
@@ -1247,9 +1326,9 @@ row_agree_text <- \(seg) {
 
 @tbl-ward-vs-kmeans cross-tabulates the two solutions. Overall, `r percent(agreement, accuracy = 0.1)` of households sit in their best-matching k-means group. Agreement is highest for the Light occasional buyers (`r row_agree_text("Light occasional buyers")`) and the Promo-6 buyers (`r row_agree_text("Promo-6 buyers")`), followed by the Loyal promotion buyers (`r row_agree_text("Loyal promotion buyers")`), the Loyal regular-price buyers (`r row_agree_text("Loyal regular-price buyers")`) and the Heavy multi-brand shoppers (`r row_agree_text("Heavy multi-brand shoppers")`). It is lowest for the Small-brand regular-price buyers (`r row_agree_text("Small-brand regular-price buyers")`), whose households are split across several k-means groups. This moderate agreement is consistent with the low silhouette values in @sec-choose-k: many households lie close to the border between clusters, and the Small-brand regular-price segment is the least sharply defined. Repeating k-means ten times with different random starts gave almost the same agreement each time (`r percent(min(stability_runs), accuracy = 0.1)` to `r percent(max(stability_runs), accuracy = 0.1)`), so the comparison does not depend on one particular set of starting centroids.
 
-### How stable are the six segments? {#sec-robust}
+### Extra check: how stable are the six segments? {#sec-robust}
 
-The best-match share above flatters the agreement, because each segment is matched to whichever k-means group suits it best. Further checks test the six segments more strictly. The **adjusted Rand index** (ARI) [@hubert1985] compares two groupings pair by pair: it is the share of household pairs that both groupings put together or both put apart, corrected so that 0 is the agreement expected by chance and 1 means identical groupings. It is computed with `mclust` [@scrucca2016mclust].
+This section also goes beyond the question. The best-match share above flatters the agreement, because each segment is matched to whichever k-means group suits it best. These checks test the six segments more strictly. The **adjusted Rand index** (ARI) [@hubert1985] compares two groupings pair by pair: it is the share of household pairs that both groupings put together or both put apart, corrected so that 0 is the agreement expected by chance and 1 means identical groupings. It is computed with `mclust` [@scrucca2016mclust].
 
 ```{r}
 #| label: tbl-robust
@@ -1468,7 +1547,7 @@ sec_aff_cor  <- cor(soap_clean$SEC, soap_clean$Affluence, method = "spearman",
 - **HS (household size)** is the demographic most directly tied to how much soap a household uses, so it tells the client which segments suit larger packs or multi-packs. `r profile_missing$n_missing[profile_missing$variable == "HS"]` households have no size recorded and are left out of the HS summaries only.
 - **AGE (age of the homemaker)** tells an advertising agency where and how to speak to each segment. Every household has a value.
 
-**Why not the others.** `Affluence` overlaps with SEC (Spearman correlation `r round(sec_aff_cor, 2)`; SEC runs from 1 high to 4 low, so a negative value means wealthier households sit in the higher classes) and has `r other_missing$Affluence` missing households. `MT` (native language) and `CHILD` are codes with no labels in the data guide, so a difference could not be turned into an action. `SEX` barely varies: `r percent(share_female, accuracy = 1)` of homemakers with a recorded value are female. `EDU`, `FEH` and `CS` are missing for `r other_missing$EDU`, `r other_missing$FEH` and `r other_missing$CS` households and are less directly linked to a bath soap decision. The [appendix](#sec-profile-check) tests this choice against the data.
+**Why not the others.** `Affluence` overlaps with SEC (Spearman correlation `r round(sec_aff_cor, 2)`; SEC runs from 1 high to 4 low, so a negative value means wealthier households sit in the higher classes) and has `r other_missing$Affluence` missing households. `MT` (native language) and `CHILD` are codes with no labels in the data guide, so a difference could not be turned into an action. `SEX` barely varies: `r percent(share_female, accuracy = 1)` of homemakers with a recorded value are female. `EDU`, `FEH` and `CS` are missing for `r other_missing$EDU`, `r other_missing$FEH` and `r other_missing$CS` households and are less directly linked to a bath soap decision. @sec-profile-check tests this choice against the data.
 
 **Missing values.** No household is dropped from the segmentation. For HS, each summary and test uses only the households that have a value, and the number used is shown.
 
@@ -1584,7 +1663,8 @@ plot_props(profile_df, SEC, "Socioeconomic class within each segment")
 hs_df |>
   ggplot(aes(HS, fct_rev(segment), fill = segment)) +
   geom_boxplot(show.legend = FALSE) +
-  stat_summary(fun = mean, geom = "point", shape = 4, size = 3) +
+  stat_summary(fun = mean, geom = "point", shape = 4, size = 3,
+               show.legend = FALSE) +
   scale_fill_manual(values = pal) +
   labs(title = "Household size within each segment",
        subtitle = paste0("Households with a recorded size: n = ", nrow(hs_df)),
@@ -1628,7 +1708,123 @@ profile_tests |>
 
 @tbl-profile-tests gives the results. SEC and household size differ significantly between segments, but both effects are small, and age does not differ at all. **The segments are therefore only weakly visible in demographics.** That is a finding in itself, and it supports XYZ's move to behavioural segmentation: a client could not have found these segments from demographics alone, so targeting should run on purchase data (panel or loyalty card records), with SEC and household size used to fine-tune the offer.
 
-Where these differences come from (standardised residuals for SEC and AGE, and pairwise tests for household size) and a check of every demographic against the three chosen are in the [Further checks](#sec-further-checks) part of the appendix.
+The next two sections go beyond the question. They show which segments and classes cause the differences, and test whether a better demographic was left out.
+
+## Extra check: where do the differences come from?
+
+The tests above say *whether* the segments differ. This check says *which* segment and class cause it, so a client knows where to act. For SEC and AGE, the **standardised residual** of each cell compares the number of households in that segment and class with the number expected if every segment had the same mix. A value beyond <U+00B1>2 marks a clear excess (positive) or shortfall (negative). For HS, **pairwise Wilcoxon tests** compare every pair of segments, with the **Holm adjustment** keeping the overall chance of a false difference at 5% across all the comparisons.
+
+```{r}
+#| label: fig-profile-residuals
+#| fig-cap: "Standardised residuals of segment by SEC and by AGE. Beyond plus or minus 2 is a clear difference."
+#| fig-width: 11
+#| fig-height: 4.5
+
+# Standardised residuals of the segment by class table, in long form for
+# plotting
+resid_df <- function(data, var) {
+  d   <- data |> filter(!is.na(.data[[var]]))
+  tab <- table(segment = d$segment, level = d[[var]])
+  # Simulated p-value, so no small-cell warning. Only the residuals are used
+  res <- chisq.test(tab, simulate.p.value = TRUE, B = 2000)
+  as.data.frame.table(res$stdres, responseName = "resid") |>
+    mutate(variable = var)
+}
+
+plot_resid <- function(rd, title) {
+  ggplot(rd, aes(level, fct_rev(segment), fill = resid)) +
+    geom_tile(colour = "white") +
+    geom_text(aes(label = round(resid, 1), colour = abs(resid) > 2),
+              show.legend = FALSE) +
+    scale_colour_manual(values = c(`TRUE` = pal_ink, `FALSE` = pal_ink)) +
+    scale_fill_gradient2(low = pal_lo, mid = "white", high = pal_hi,
+                         midpoint = 0) +
+    labs(title = title, x = NULL, y = NULL, fill = "Residual")
+}
+
+sec_resid <- resid_df(profile_df, "SEC")
+age_resid <- resid_df(profile_df, "AGE")
+
+plot_resid(sec_resid, "Socioeconomic class") +
+  plot_resid(age_resid, "Age of the homemaker")
+```
+
+```{r}
+#| label: tbl-profile-hs-pairs
+#| tbl-cap: "Household size: segment pairs that still differ after the Holm adjustment."
+
+hs_pairs <- pairwise.wilcox.test(hs_df$HS, hs_df$segment,
+                                 p.adjust.method = "holm", exact = FALSE) |>
+  tidy()
+
+hs_pairs |>
+  filter(p.value < 0.05) |>
+  gt() |>
+  fmt_number(p.value, decimals = 4) |>
+  cols_label(group1 = "Segment", group2 = "Compared with",
+             p.value = "Holm-adjusted p-value")
+```
+
+```{r}
+#| label: residual-values
+
+resid_text <- \(seg, lvl) {
+  sprintf("%+.1f",
+          sec_resid$resid[sec_resid$segment == seg & sec_resid$level == lvl])
+}
+n_age_cells <- sum(abs(age_resid$resid) > 2)
+```
+
+@fig-profile-residuals and @tbl-profile-hs-pairs show the detail. The SEC result is driven by three segments: the Loyal promotion buyers have more SEC 4 households than expected (`r resid_text("Loyal promotion buyers", "4 Low")`), the Promo-6 buyers have more SEC 2 households (`r resid_text("Promo-6 buyers", "2")`), and the small Light occasional group has more SEC 1 households (`r resid_text("Light occasional buyers", "1 High")`). `r if (n_age_cells == 0) "No age cell goes beyond 2 in either direction, which matches the non-significant age test." else paste(n_age_cells, "age cells go beyond 2 in either direction, but the age test as a whole is not significant.")` For household size, only the pairs in the table above differ after adjustment, and every one of them involves the Heavy multi-brand shoppers' larger households. These are the comparisons a client should rely on when choosing which segment gets which offer.
+
+## Extra check: did we miss a better demographic? {#sec-profile-check}
+
+The three variables were chosen for business reasons. As a check, every demographic is measured on how strongly it separates the segments with one common measure, Cram<U+00E9>r's V. Numeric variables (HS, Affluence and EDU, which has nine sparse levels) are first cut into four equal-sized groups, and native-language codes held by fewer than 20 households are pooled, so that rare codes do not inflate the measure.
+
+```{r}
+#| label: fig-profile-all-demographics
+#| fig-cap: "How strongly each demographic separates the six segments (Cramer's V)."
+#| fig-width: 8
+#| fig-height: 4.5
+
+all_demo_v <- map_dfr(demo_cols, \(v) {
+  d <- soap_clusters |>
+    select(MemberID, segment) |>
+    left_join(soap_clean |> select(MemberID, value = all_of(v)),
+              by = "MemberID") |>
+    filter(!is.na(value))
+  grp <- if (v %in% c("HS", "Affluence", "EDU")) {
+    # numeric: four equal-sized groups
+    factor(ntile(d$value, 4))
+  } else {
+    # categorical: pool rare codes
+    fct_lump_min(factor(d$value), min = 20)
+  }
+  tab <- table(d$segment, grp)
+  # Simulated p-value, so no small-cell warning. Only the statistic is used
+  res <- chisq.test(tab, simulate.p.value = TRUE, B = 2000)
+  tibble(variable = v, n = nrow(d),
+         cramers_v = cramers_v(tab, unname(res$statistic)),
+         chosen = v %in% profile_vars)
+})
+
+all_demo_v |>
+  ggplot(aes(cramers_v, fct_reorder(variable, cramers_v), fill = chosen)) +
+  geom_col() +
+  scale_fill_manual(values = c(`TRUE` = pal[1], `FALSE` = pal_grey),
+                    labels = c(`TRUE` = "Chosen", `FALSE` = "Not chosen")) +
+  labs(title = "How strongly each demographic separates the segments",
+       x = "Cramer's V", y = NULL, fill = NULL)
+```
+
+```{r}
+#| label: check-values
+
+demo_v <- \(v) round(all_demo_v$cramers_v[all_demo_v$variable == v], 3)
+```
+
+@fig-profile-all-demographics shows that every demographic separates the segments only weakly (the largest V is `r round(max(all_demo_v$cramers_v), 3)`), which repeats the finding above. HS and SEC are among the stronger variables, which supports two of the three choices. `Affluence` (V = `r demo_v("Affluence")`) and `EDU` (`r demo_v("EDU")`) separate the segments more than AGE (`r demo_v("AGE")`). They were left out because Affluence largely repeats SEC and EDU has many sparse levels and more missing values. Since the brief lets the team choose any three demographics, Affluence would be an acceptable alternative to AGE. It is reported here so a reader can see the trade-off rather than take the choice on trust.
+
 
 ## Summary profile of each segment
 
@@ -2046,180 +2242,6 @@ The segments differ in *when* and *how* a promotion pays off, which is what lets
 
 # Appendix {#sec-appendix .unnumbered}
 
-## Further checks {#sec-further-checks .unnumbered}
-
-These checks support the main text but are not needed to follow it, so they sit here.
-
-### Question 1(b): a second method gives the same MaxBrShare {.unnumbered}
-
-```{r}
-#| label: maxbrshare-second-method
-
-# pmax() works across whole columns at once instead of one row at a time
-max_pmax <- do.call(pmax, select(soap_raw, all_of(brand_cols)))
-# Stops the render if the two methods ever disagree
-stopifnot(isTRUE(all.equal(soap$MaxBrShare, max_pmax)))
-n_same <- sum(near(soap$MaxBrShare, max_pmax))
-```
-
-The vectorised `pmax()` gives the same value for all `r n_same` households (the `stopifnot()` check would stop the render otherwise). It is the more efficient form because it avoids creating a group for each row. The `rowwise()` approach is kept above because it shows the row-by-row logic most clearly.
-
-### Question 1(b): how concentration is spread {.unnumbered}
-
-```{r}
-#| label: fig-q1b-maxbrshare
-#| fig-cap: "Left: distribution of MaxBrShare. Right: MaxBrShare against the number of brands bought (line = median at each brand count)."
-#| fig-width: 10
-#| fig-height: 4
-
-p_hist <- ggplot(soap, aes(MaxBrShare)) +
-  geom_histogram(binwidth = 0.05, boundary = 0, fill = pal[1],
-                 colour = "white") +
-  scale_x_continuous(labels = percent) +
-  labs(title = "Concentration on one named brand", x = "MaxBrShare",
-       y = "Households")
-
-p_scatter <- ggplot(soap, aes(NoBrands, MaxBrShare)) +
-  geom_point(colour = pal[1], alpha = 0.7) +
-  stat_summary(fun = median, geom = "line", colour = pal[2], linewidth = 0.9) +
-  scale_y_continuous(labels = percent) +
-  labs(title = "More brands, less concentration", x = "Number of brands bought",
-       y = "MaxBrShare")
-
-p_hist + p_scatter
-```
-
-@fig-q1b-maxbrshare shows the spread. The middle half of households give between `r percent(quantile(soap$MaxBrShare, 0.25), accuracy = 1)` and `r percent(quantile(soap$MaxBrShare, 0.75), accuracy = 1)` of their volume to their favourite named brand, and `r sum(near(soap$MaxBrShare, 1))` give it all of their volume. Concentration falls as the number of brands rises, but households with the same brand count still differ widely, and the single-brand households include both 100% named-brand buyers and the zero group. This is why the two variables are read together.
-
-### Question 1(b): do the nine shares add up to 1? {.unnumbered}
-
-`r nrow(soap) - nrow(share_exceptions)` households have nine shares (eight named brands plus `BrOthers`) that sum to 1 within 0.01. The `r nrow(share_exceptions)` exceptions are shown in @tbl-q1b-share-exceptions. They are kept as supplied, because rescaling them would change the measure the question defines. Their `MaxBrShare` values are still valid shares between 0 and 1.
-
-```{r}
-#| label: tbl-q1b-share-exceptions
-#| tbl-cap: "Households whose nine brand shares do not sum to 1 (share_exceptions from @sec-setup)."
-
-share_exceptions |>
-  gt() |>
-  fmt_number(share_total, decimals = 3) |>
-  cols_label(MemberID = "Household ID", share_total = "Sum of the nine shares")
-```
-
-### Question 2(e): where do the differences come from? {.unnumbered}
-
-The tests above say *whether* the segments differ. This check says *which* segment and class cause it, so a client knows where to act. For SEC and AGE, the **standardised residual** of each cell compares the number of households in that segment and class with the number expected if every segment had the same mix. A value beyond <U+00B1>2 marks a clear excess (positive) or shortfall (negative). For HS, **pairwise Wilcoxon tests** compare every pair of segments, with the **Holm adjustment** keeping the overall chance of a false difference at 5% across all the comparisons.
-
-```{r}
-#| label: fig-profile-residuals
-#| fig-cap: "Standardised residuals of segment by SEC and by AGE. Beyond plus or minus 2 is a clear difference."
-#| fig-width: 11
-#| fig-height: 4.5
-
-# Standardised residuals of the segment by class table, in long form for
-# plotting
-resid_df <- function(data, var) {
-  d   <- data |> filter(!is.na(.data[[var]]))
-  tab <- table(segment = d$segment, level = d[[var]])
-  # Simulated p-value, so no small-cell warning. Only the residuals are used
-  res <- chisq.test(tab, simulate.p.value = TRUE, B = 2000)
-  as.data.frame.table(res$stdres, responseName = "resid") |>
-    mutate(variable = var)
-}
-
-plot_resid <- function(rd, title) {
-  ggplot(rd, aes(level, fct_rev(segment), fill = resid)) +
-    geom_tile(colour = "white") +
-    geom_text(aes(label = round(resid, 1), colour = abs(resid) > 2),
-              show.legend = FALSE) +
-    scale_colour_manual(values = c(`TRUE` = pal_ink, `FALSE` = pal_ink)) +
-    scale_fill_gradient2(low = pal_lo, mid = "white", high = pal_hi,
-                         midpoint = 0) +
-    labs(title = title, x = NULL, y = NULL, fill = "Residual")
-}
-
-sec_resid <- resid_df(profile_df, "SEC")
-age_resid <- resid_df(profile_df, "AGE")
-
-plot_resid(sec_resid, "Socioeconomic class") +
-  plot_resid(age_resid, "Age of the homemaker")
-```
-
-```{r}
-#| label: tbl-profile-hs-pairs
-#| tbl-cap: "Household size: segment pairs that still differ after the Holm adjustment."
-
-hs_pairs <- pairwise.wilcox.test(hs_df$HS, hs_df$segment,
-                                 p.adjust.method = "holm", exact = FALSE) |>
-  tidy()
-
-hs_pairs |>
-  filter(p.value < 0.05) |>
-  gt() |>
-  fmt_number(p.value, decimals = 4) |>
-  cols_label(group1 = "Segment", group2 = "Compared with",
-             p.value = "Holm-adjusted p-value")
-```
-
-```{r}
-#| label: residual-values
-
-resid_text <- \(seg, lvl) {
-  sprintf("%+.1f",
-          sec_resid$resid[sec_resid$segment == seg & sec_resid$level == lvl])
-}
-n_age_cells <- sum(abs(age_resid$resid) > 2)
-```
-
-@fig-profile-residuals and @tbl-profile-hs-pairs show the detail. The SEC result is driven by three segments: the Loyal promotion buyers have more SEC 4 households than expected (`r resid_text("Loyal promotion buyers", "4 Low")`), the Promo-6 buyers have more SEC 2 households (`r resid_text("Promo-6 buyers", "2")`), and the small Light occasional group has more SEC 1 households (`r resid_text("Light occasional buyers", "1 High")`). `r if (n_age_cells == 0) "No age cell goes beyond 2 in either direction, which matches the non-significant age test." else paste(n_age_cells, "age cells go beyond 2 in either direction, but the age test as a whole is not significant.")` For household size, only the pairs in the table above differ after adjustment, and every one of them involves the Heavy multi-brand shoppers' larger households. These are the comparisons a client should rely on when choosing which segment gets which offer.
-
-### Question 2(e): did we miss a better demographic? {#sec-profile-check .unnumbered}
-
-The three variables were chosen for business reasons. As a check, every demographic is measured on how strongly it separates the segments with one common measure, Cram<U+00E9>r's V. Numeric variables (HS, Affluence and EDU, which has nine sparse levels) are first cut into four equal-sized groups, and native-language codes held by fewer than 20 households are pooled, so that rare codes do not inflate the measure.
-
-```{r}
-#| label: fig-profile-all-demographics
-#| fig-cap: "How strongly each demographic separates the six segments (Cramer's V)."
-#| fig-width: 8
-#| fig-height: 4.5
-
-all_demo_v <- map_dfr(demo_cols, \(v) {
-  d <- soap_clusters |>
-    select(MemberID, segment) |>
-    left_join(soap_clean |> select(MemberID, value = all_of(v)),
-              by = "MemberID") |>
-    filter(!is.na(value))
-  grp <- if (v %in% c("HS", "Affluence", "EDU")) {
-    # numeric: four equal-sized groups
-    factor(ntile(d$value, 4))
-  } else {
-    # categorical: pool rare codes
-    fct_lump_min(factor(d$value), min = 20)
-  }
-  tab <- table(d$segment, grp)
-  # Simulated p-value, so no small-cell warning. Only the statistic is used
-  res <- chisq.test(tab, simulate.p.value = TRUE, B = 2000)
-  tibble(variable = v, n = nrow(d),
-         cramers_v = cramers_v(tab, unname(res$statistic)),
-         chosen = v %in% profile_vars)
-})
-
-all_demo_v |>
-  ggplot(aes(cramers_v, fct_reorder(variable, cramers_v), fill = chosen)) +
-  geom_col() +
-  scale_fill_manual(values = c(`TRUE` = pal[1], `FALSE` = pal_grey),
-                    labels = c(`TRUE` = "Chosen", `FALSE` = "Not chosen")) +
-  labs(title = "How strongly each demographic separates the segments",
-       x = "Cramer's V", y = NULL, fill = NULL)
-```
-
-```{r}
-#| label: check-values
-
-demo_v <- \(v) round(all_demo_v$cramers_v[all_demo_v$variable == v], 3)
-```
-
-@fig-profile-all-demographics shows that every demographic separates the segments only weakly (the largest V is `r round(max(all_demo_v$cramers_v), 3)`), which repeats the finding above. HS and SEC are among the stronger variables, which supports two of the three choices. `Affluence` (V = `r demo_v("Affluence")`) and `EDU` (`r demo_v("EDU")`) separate the segments more than AGE (`r demo_v("AGE")`). They were left out because Affluence largely repeats SEC and EDU has many sparse levels and more missing values. Since the brief lets the team choose any three demographics, Affluence would be an acceptable alternative to AGE. It is reported here so a reader can see the trade-off rather than take the choice on trust.
-
 ## Packages used {.unnumbered}
 
 @tbl-appendix-package-versions records the installed versions of every package explicitly loaded in the shared setup, together with the rendering dependencies. These versions are read from the R library at execution time, rather than transcribed from a previous run. The complete attached-package and namespace information follows in `sessionInfo()`.
@@ -2257,7 +2279,26 @@ The table identifies the computational environment used for this particular rend
 sessionInfo()
 ```
 
-This output records the running R version, operating system, locale, attached packages and loaded namespaces. It supplements the explicit package table with dependencies loaded indirectly by the analysis.
+This is the full record of the R session that produced the report: the R version, the operating system and its language settings, and every package that was loaded, including the ones R loads behind the scenes. It adds to the table above, which only lists the packages we chose to load ourselves.
+
+
+# Acknowledgement of AI Use {.unnumbered #sec-ai-use}
+
+::: {.callout-note appearance="simple" icon="false" .ai-box}
+**AI tools used.** Gemini (Google),  model Gemini 3.6 Flash.
+
+**How they were used.** Generative AI was used strictly in a guided manner to assist with code structure refinement, formatting, and language polishing. Specifically, it was used to help format and optimize R/Quarto scripts (e.g., verifying recipes preprocessing workflows, tuning ggplot2 visual themes, and streamlining data transformations) and to improve prose clarity, grammar, and typography in the report. AI was not used to write the analytical narrative, perform core reasoning, or generate data.
+
+**Verification.** All raw datasets (bathsoap.csv and brand_example.csv), statistical calculations (Euclidean distances, cluster silhouette widths, PCA eigenvalues), variable selections, and strategic business recommendations were independently executed, calculated, and verified against the primary unit requirements and team code outputs.
+
+**Example prompts.**
+
+- Gemini: "Help polish this section for clarity and conciseness without altering any underlying statistical analysis or arguments."
+- Gemini: "Refine this R code snippet using ggplot2 and gt to ensure clean presentation and consistent visual themes across the document."
+
+**Responsibility.** As a team, we maintain full responsibility for the originality, academic integrity, accuracy, code functionality, and overall quality of this submission, including all analysis, interpretations, and final recommendations.
+
+# References {.unnumbered #sec-references}
 
 ::: {#refs}
 :::

@@ -103,7 +103,9 @@ Distance based methods such as cluster analysis group households that are close 
 2. **Loyalty gets far too much weight.** Nine of the columns would describe brand choice, so one idea (loyalty) would outvote volume, frequency and promotions, which would each be a single column.
 3. **The nine shares are not independent.** They add up to 1 (for all but `r nrow(share_exceptions)` households, see @sec-q1b), so any one is almost fixed by the other eight. A distance method counts the same information nine times over.
 
-The next chunk checks this on the real data, using only the households that put **all** of their volume into one named brand.
+### Extra check: the same problem on the real data
+
+The question only asks for an explanation. This check goes further and tests the claim on the real data, using only the households that put **all** of their volume into one named brand.
 
 ```{r}
 #| label: tbl-nine-share-distances

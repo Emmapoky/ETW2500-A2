@@ -80,4 +80,59 @@ dist_compare |>
 
 `MaxBrShare` shows how concentrated a household is on its favourite named brand, while `NoBrands` shows how many brands it spreads across, so only together do they separate truly disloyal households from the `r nrow(zero_hh)` single-brand households whose `MaxBrShare` is zero only because their brand is in `BrOthers`.
 
-Further checks on `MaxBrShare` (a second way to compute it, its distribution, and the households whose shares do not sum to 1) are in the [Further checks](#sec-further-checks) part of the appendix.
+The next three sections go beyond the question. They compute `MaxBrShare` a second way, show how concentration is spread and check the households whose shares do not sum to 1.
+
+## Extra check: a second way to compute MaxBrShare
+
+```{r}
+#| label: maxbrshare-second-method
+
+# pmax() works across whole columns at once instead of one row at a time
+max_pmax <- do.call(pmax, select(soap_raw, all_of(brand_cols)))
+# Stops the render if the two methods ever disagree
+stopifnot(isTRUE(all.equal(soap$MaxBrShare, max_pmax)))
+n_same <- sum(near(soap$MaxBrShare, max_pmax))
+```
+
+The vectorised `pmax()` gives the same value for all `r n_same` households (the `stopifnot()` check would stop the render otherwise). It is the more efficient form because it avoids creating a group for each row. The `rowwise()` approach is kept above because it shows the row-by-row logic most clearly.
+
+## Extra check: how concentration is spread
+
+```{r}
+#| label: fig-q1b-maxbrshare
+#| fig-cap: "Left: distribution of MaxBrShare. Right: MaxBrShare against the number of brands bought (line = median at each brand count)."
+#| fig-width: 10
+#| fig-height: 4
+
+p_hist <- ggplot(soap, aes(MaxBrShare)) +
+  geom_histogram(binwidth = 0.05, boundary = 0, fill = pal[1],
+                 colour = "white") +
+  scale_x_continuous(labels = percent) +
+  labs(title = "Concentration on one named brand", x = "MaxBrShare",
+       y = "Households")
+
+p_scatter <- ggplot(soap, aes(NoBrands, MaxBrShare)) +
+  geom_point(colour = pal[1], alpha = 0.7) +
+  stat_summary(fun = median, geom = "line", colour = pal[2], linewidth = 0.9) +
+  scale_y_continuous(labels = percent) +
+  labs(title = "More brands, less concentration", x = "Number of brands bought",
+       y = "MaxBrShare")
+
+p_hist + p_scatter
+```
+
+@fig-q1b-maxbrshare shows the spread. The middle half of households give between `r percent(quantile(soap$MaxBrShare, 0.25), accuracy = 1)` and `r percent(quantile(soap$MaxBrShare, 0.75), accuracy = 1)` of their volume to their favourite named brand, and `r sum(near(soap$MaxBrShare, 1))` give it all of their volume. Concentration falls as the number of brands rises, but households with the same brand count still differ widely, and the single-brand households include both 100% named-brand buyers and the zero group. This is why the two variables are read together.
+
+## Extra check: do the nine shares add up to 1? {#sec-share-check}
+
+`r nrow(soap) - nrow(share_exceptions)` households have nine shares (eight named brands plus `BrOthers`) that sum to 1 within 0.01. The `r nrow(share_exceptions)` exceptions are shown in @tbl-q1b-share-exceptions. They are kept as supplied, because rescaling them would change the measure the question defines. Their `MaxBrShare` values are still valid shares between 0 and 1.
+
+```{r}
+#| label: tbl-q1b-share-exceptions
+#| tbl-cap: "Households whose nine brand shares do not sum to 1 (share_exceptions from @sec-setup)."
+
+share_exceptions |>
+  gt() |>
+  fmt_number(share_total, decimals = 3) |>
+  cols_label(MemberID = "Household ID", share_total = "Sum of the nine shares")
+```

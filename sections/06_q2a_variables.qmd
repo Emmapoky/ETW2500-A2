@@ -47,7 +47,7 @@ soap |>
 
 @tbl-select-variables summarises the six. They cover all four ideas. Volume and frequency have one variable each. Discounts and loyalty have two each, because in each case the two variables measure different things (the evidence is in @tbl-q2a-correlation-pairs and @fig-q2a-correlation).
 
-## Variables that are exact copies of each other
+## Extra check: variables that are exact copies of each other
 
 Several columns are calculated from other columns, so they add nothing new and would count the same behaviour twice in a distance. The chunk below tests each suspected relationship on the data instead of assuming it.
 
@@ -225,7 +225,7 @@ variable_table |>
 | Discounts | `PurPromo6` and `PurOtherPromo` | `PurNoPromo`, one combined promotion share | `PurNoPromo` is redundant. A single combined share (1 minus `PurNoPromo`) would hide that the two promotion types are almost uncorrelated. |
 | Loyalty | `MaxBrShare` and `NoBrands` | The nine brand shares, `BrOthers`, `BrandRuns`, `TransPerRun` | The nine shares measure brand identity. `MaxBrShare` measures concentration, and `NoBrands` covers the households that buy one small brand and have `MaxBrShare` of 0. `BrandRuns` and `TransPerRun` measure switching, but they overlap with `NoTrans`, `NoBrands` and `MaxBrShare` (see @tbl-q2a-dropped-correlation), so they would count the same behaviour twice. |
 
-## Checking the six for multicollinearity
+## Extra check: multicollinearity among the six
 
 Multicollinearity means two variables move together so closely that they carry almost the same information. If it were present, one idea would be counted twice in every distance. The correlation heatmap checks the six before they go on.
 

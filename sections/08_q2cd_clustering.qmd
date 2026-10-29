@@ -21,12 +21,14 @@ cluster_data <- soap_prep |> select(all_of(cluster_vars))
 
 # Elbow and silhouette using hierarchical clustering with Ward's linkage
 p_elbow <- fviz_nbclust(cluster_data, FUNcluster = hcut, method = "wss",
-                        k.max = 10, hc_method = "ward.D2") +
+                        k.max = 10, hc_method = "ward.D2",
+                        linecolor = pal[1]) +
   labs(title = "(A) Elbow method")
 
 p_silhouette <- fviz_nbclust(cluster_data, FUNcluster = hcut,
                              method = "silhouette",
-                             k.max = 10, hc_method = "ward.D2") +
+                             k.max = 10, hc_method = "ward.D2",
+                             linecolor = pal[1]) +
   labs(title = "(B) Silhouette method")
 
 p_elbow + p_silhouette
@@ -119,9 +121,9 @@ soap_clusters <- tibble(MemberID = soap_prep$MemberID,
 
 Cutting the Ward dendrogram into six clusters gives segments of `r min(table(ward_groups))` to `r max(table(ward_groups))` households. Each segment was given a label based on its average values on the six variables, and each household's cluster and segment name are stored in `soap_clusters` for the rest of the analysis.
 
-### Does the result depend on the method?
+### Extra check: does the result depend on the method?
 
-To check whether the segments depend on the clustering method, k-means was also run with six clusters. K-means assigns each household to the cluster with the nearest centroid, recalculates each centroid as the mean of its cluster, and repeats until the assignments stop changing. Because the starting centroids are random, k-means was run with 25 random starts, keeping the solution with the lowest total within-cluster variation, and the seed is set right before it so the result repeats exactly.
+The question only asks for one clustering. This check goes further and asks whether the segments survive a different method. To check whether the segments depend on the clustering method, k-means was also run with six clusters. K-means assigns each household to the cluster with the nearest centroid, recalculates each centroid as the mean of its cluster, and repeats until the assignments stop changing. Because the starting centroids are random, k-means was run with 25 random starts, keeping the solution with the lowest total within-cluster variation, and the seed is set right before it so the result repeats exactly.
 
 ```{r}
 #| label: tbl-ward-vs-kmeans
@@ -171,9 +173,9 @@ row_agree_text <- \(seg) {
 
 @tbl-ward-vs-kmeans cross-tabulates the two solutions. Overall, `r percent(agreement, accuracy = 0.1)` of households sit in their best-matching k-means group. Agreement is highest for the Light occasional buyers (`r row_agree_text("Light occasional buyers")`) and the Promo-6 buyers (`r row_agree_text("Promo-6 buyers")`), followed by the Loyal promotion buyers (`r row_agree_text("Loyal promotion buyers")`), the Loyal regular-price buyers (`r row_agree_text("Loyal regular-price buyers")`) and the Heavy multi-brand shoppers (`r row_agree_text("Heavy multi-brand shoppers")`). It is lowest for the Small-brand regular-price buyers (`r row_agree_text("Small-brand regular-price buyers")`), whose households are split across several k-means groups. This moderate agreement is consistent with the low silhouette values in @sec-choose-k: many households lie close to the border between clusters, and the Small-brand regular-price segment is the least sharply defined. Repeating k-means ten times with different random starts gave almost the same agreement each time (`r percent(min(stability_runs), accuracy = 0.1)` to `r percent(max(stability_runs), accuracy = 0.1)`), so the comparison does not depend on one particular set of starting centroids.
 
-### How stable are the six segments? {#sec-robust}
+### Extra check: how stable are the six segments? {#sec-robust}
 
-The best-match share above flatters the agreement, because each segment is matched to whichever k-means group suits it best. Further checks test the six segments more strictly. The **adjusted Rand index** (ARI) [@hubert1985] compares two groupings pair by pair: it is the share of household pairs that both groupings put together or both put apart, corrected so that 0 is the agreement expected by chance and 1 means identical groupings. It is computed with `mclust` [@scrucca2016mclust].
+This section also goes beyond the question. The best-match share above flatters the agreement, because each segment is matched to whichever k-means group suits it best. These checks test the six segments more strictly. The **adjusted Rand index** (ARI) [@hubert1985] compares two groupings pair by pair: it is the share of household pairs that both groupings put together or both put apart, corrected so that 0 is the agreement expected by chance and 1 means identical groupings. It is computed with `mclust` [@scrucca2016mclust].
 
 ```{r}
 #| label: tbl-robust

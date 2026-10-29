@@ -1,0 +1,23 @@
+# Acknowledgement of AI Use {.unnumbered #sec-ai-use}
+
+::: {.callout-note appearance="simple" icon="false" .ai-box}
+**AI tools used.** Gemini (Google), model Gemini 3.6 Flash. Claude (Anthropic), used through Claude Code.
+
+**How they were used.** Gemini was used in a guided way for code structure refinement, formatting and language polishing, for example to check the recipes preprocessing workflow, tune the ggplot2 themes, streamline data transformations and improve the clarity, grammar and typography of the prose. Claude was used to review the draft against the assessment criteria, to suggest and help implement improvements to the code, tables and prose (including the clustering stability checks, the renamed segment and corrections to earlier claims), to style the report and to build the submission script. Neither tool was used to generate data. The team chose the variables, methods and number of segments, and made the final decisions on the interpretation and the business recommendations.
+
+**Verification.** Every result in this report is produced by the visible R code, which the team ran on the two supplied datasets (`bathsoap.csv` and `brand_example.csv`). The team checked the outputs, including the Euclidean distances, the silhouette widths and the PCA eigenvalues, the variable selections and the recommendations against the brief and the unit materials.
+
+**Example prompts.**
+
+- Gemini: "Help polish this section for clarity and conciseness without altering any underlying statistical analysis or arguments."
+- Gemini: "Refine this R code snippet using ggplot2 and gt to ensure clean presentation and consistent visual themes across the document."
+- Claude: "Make sure the zip is submission ready, and run the review panel to make sure we do more than required for a high distinction."
+- Claude: "Make the report look cleaner with simple pastel colours."
+
+**Responsibility.** As a team, we maintain full responsibility for the originality, academic integrity, accuracy, code functionality and overall quality of this submission, including all analysis, interpretations and final recommendations.
+:::
+
+# References {.unnumbered #sec-references}
+
+::: {#refs}
+:::

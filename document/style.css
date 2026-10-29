@@ -42,8 +42,10 @@ h3 { color: var(--ink-soft); }
 a { color: var(--violet-text); text-decoration-color: var(--violet); }
 a.quarto-xref { font-weight: 600; }
 #TOC { font-size: 0.92em; }
-#TOC .nav-link.active { color: var(--ink) !important; background: var(--card);
-                        border-left-color: var(--violet) !important; }
+#TOC .nav-link.active { color: var(--ink) !important; background: #FAD6E5 !important;
+                        border-left-color: #E0649A !important; font-weight: 600;
+                        border-radius: 0 6px 6px 0; }
+#TOC .nav-link.active .header-section-number { color: var(--ink) !important; }
 #TOC .nav-link:hover { color: var(--violet-text) !important; }
 
 /* Code */
@@ -133,3 +135,79 @@ div.cell-output-stdout pre, pre.session-output, .session-output pre {
 div.cell-output-stdout pre code, .session-output code {
   color: var(--ink) !important; background: transparent !important;
   white-space: pre-wrap !important; font-size: 1em; }
+
+/* Title block: one rule under the whole block (the Code button no longer shortens it) */
+#title-block-header h1.title { border-bottom: none !important; padding-bottom: 0 !important; margin-top: 0; }
+
+/* Hover previews of tables, figures and sections: equal padding on every side */
+.tippy-box { border-radius: 10px; background: var(--paper); }
+.tippy-content { padding: 16px 18px !important; }
+.tippy-content > *:first-child, .tippy-content > * > *:first-child { margin-top: 0 !important; padding-top: 0 !important; }
+.tippy-content > *:last-child, .tippy-content > * > *:last-child { margin-bottom: 0 !important; padding-bottom: 0 !important; }
+.tippy-content h1, .tippy-content h2, .tippy-content h3, .tippy-content h4 { margin-top: 0 !important; border-bottom: 0; padding-bottom: 0; }
+.tippy-content .quarto-figure, .tippy-content figure, .tippy-content table { margin-top: 0 !important; margin-bottom: 0 !important; }
+
+/* Session information: pink rounded box, dark text */
+.session-output, div.session-output pre, pre.session-output { background: #FBE0EA !important; color: var(--ink) !important;
+  border: 1px solid #F0B3CB; border-radius: 12px; padding: 14px 18px; }
+.session-output code, pre.session-output code { background: transparent !important; color: var(--ink) !important; border: 0; }
+
+/* Acknowledgement of AI use: rounded pink box */
+.callout.ai-box { background: #FBE0EA !important; border: 1px solid #F0B3CB !important;
+  border-left: 6px solid #E0649A !important; border-radius: 14px; padding: 6px 10px; }
+
+/* Bibliography: rounded box so it does not melt into the page */
+#refs { background: #FFFFFF; border: 1px solid var(--rule); border-left: 6px solid var(--violet);
+  border-radius: 14px; padding: 14px 22px; }
+#refs .csl-entry { margin: 0.5em 0; }
+
+/* Layout: centre the report between the contents panel and the right edge, so the
+   gap beside the contents panel equals the gap at the right edge. Also leave
+   breathing room above the title so the page does not start flush at the top. */
+#quarto-content > main.content { grid-column: body-start / screen-end !important; padding-top: 2.2rem; }
+#quarto-content > main.content > * { width: min(900px, 100% - 48px); margin-left: auto !important; margin-right: auto !important; }
+
+/* ---- Contents toggle: the button hides the panel and the report stays centred ---- */
+#toc-toggle { position: fixed; top: 10px; left: 10px; z-index: 1000; cursor: pointer;
+  background: #FFFFFF; color: var(--ink); border: 1px solid #E8B7CE; border-radius: 999px;
+  padding: 5px 14px; font-size: 0.8rem; font-weight: 600; box-shadow: 0 1px 4px rgba(46,38,80,0.15); }
+#toc-toggle:hover { background: #FAD6E5; }
+body.toc-closed #quarto-sidebar, body.toc-closed #quarto-sidebar-toc-left { display: none !important; }
+body.toc-closed #quarto-content > main.content { grid-column: screen-start / screen-end !important; }
+
+/* ---- Each top-level section is its own card, so sections are clearly separate ---- */
+#quarto-content > main.content > section.level1 { background: rgba(255,255,255,0.6); border: 1px solid var(--rule);
+  border-radius: 16px; padding: 0.4rem 1.7rem 1.6rem; margin-top: 2.2rem !important; margin-bottom: 2.2rem; }
+#quarto-content > main.content > section.level1 > h1 { margin-top: 1.1rem; }
+
+/* ---- Table headers: one filled box, no stray rules through the spanner ---- */
+.gt_table .gt_col_headings, .gt_table .gt_col_heading, .gt_table .gt_column_spanner,
+.gt_table .gt_column_spanner_outer, .gt_table thead th { border: 0 !important; box-shadow: none !important;
+  background-color: var(--pink-head) !important; }
+.gt_table .gt_column_spanner { text-align: center; font-weight: 700; border-bottom: 0 !important; }
+.gt_table .gt_sep_right { border-right: 0 !important; }
+.gt_table thead { border-bottom: 2px solid var(--violet) !important; }
+
+/* ---- Copy button: centred in one-line blocks, with room around every block ---- */
+div.sourceCode { position: relative; }
+div.sourceCode pre { padding: 14px 16px; }
+div.sourceCode:has(pre > code > span:only-child) .code-copy-button { top: 50% !important; transform: translateY(-50%); }
+div.sourceCode:has(pre > code > span:only-child) pre { padding-right: 48px; }
+
+/* ---- References: the hanging indent stays inside the box ---- */
+#refs { padding: 16px 26px 16px 26px; overflow: hidden; }
+#refs .csl-entry { padding-left: 2em !important; text-indent: -2em !important; margin: 0.55em 0 !important; }
+
+/* Session information box: needs the extra specificity to beat Quarto's own output style */
+div.cell-output.cell-output-stdout pre.session-output { background-color: #FBD9E6 !important;
+  border: 1px solid #EBA9C6 !important; border-radius: 12px; padding: 16px 20px; color: var(--ink) !important; }
+div.cell-output.cell-output-stdout pre.session-output code { background: transparent !important; color: var(--ink) !important; }
+
+/* The contents button must not be stretched by the centring rule below */
+#quarto-content > main.content > #toc-toggle { width: auto !important; margin: 0 !important; }
+
+/* No rule through the spanner label or under the column numbers: the header is one filled box */
+div.gt_column_spanner, .gt_table div.gt_column_spanner, .gt_table th.gt_columns_bottom_border,
+.gt_table th.gt_col_heading, .gt_table th.gt_column_spanner_outer {
+  border-bottom-width: 0 !important; border-bottom-style: none !important; border-top-width: 0 !important;
+  border-left-width: 0 !important; border-right-width: 0 !important; }

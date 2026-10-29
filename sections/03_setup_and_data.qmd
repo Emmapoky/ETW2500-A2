@@ -86,4 +86,4 @@ tibble(
              shares_off = "Brand shares not summing to 1 (within 0.01)")
 ```
 
-@tbl-first-look shows that the data have `r nrow(soap_raw)` households and no empty cells, and all but `r nrow(share_exceptions)` households have nine brand shares that add up to 1 within 0.01 (the exceptions are listed in the [appendix](#sec-further-checks)). A clean-looking table does **not** mean there is no missing information. The data guide says a code of 0 means "not specified" for the demographic variables, so the missing values are hidden inside the numbers. @sec-prep finds and handles them.
+@tbl-first-look shows that the data have `r nrow(soap_raw)` households and no empty cells, and all but `r nrow(share_exceptions)` households have nine brand shares that add up to 1 within 0.01 (the exceptions are listed in @tbl-q1b-share-exceptions). A clean-looking table does **not** mean there is no missing information. The data guide says a code of 0 means "not specified" for the demographic variables, so the missing values are hidden inside the numbers. @sec-prep finds and handles them.

@@ -63,6 +63,21 @@ filled in from tools/member_ids.csv (Erwyna's computer only, git-ignored) by too
 | Riely Hariri Bin Rafliz | withheld |
 | Naidu Shrrii Shivanie | withheld |
 
+```{=html}
+<button id="toc-toggle" type="button" aria-expanded="true">Hide contents</button>
+<script>
+(function () {
+  var b = document.getElementById("toc-toggle");
+  if (!b) return;
+  b.addEventListener("click", function () {
+    var closed = document.body.classList.toggle("toc-closed");
+    b.textContent = closed ? "Show contents" : "Hide contents";
+    b.setAttribute("aria-expanded", String(!closed));
+  });
+})();
+</script>
+```
+
 {{< include ../sections/01_introduction.qmd >}}
 
 {{< include ../sections/02_how_to_reproduce.qmd >}}
@@ -86,3 +101,5 @@ filled in from tools/member_ids.csv (Erwyna's computer only, git-ignored) by too
 {{< include ../sections/11_conclusion.qmd >}}
 
 {{< include ../sections/12_appendix.qmd >}}
+
+{{< include ../sections/13_ai_acknowledgement.qmd >}}

@@ -49,7 +49,7 @@ sec_aff_cor  <- cor(soap_clean$SEC, soap_clean$Affluence, method = "spearman",
 - **HS (household size)** is the demographic most directly tied to how much soap a household uses, so it tells the client which segments suit larger packs or multi-packs. `r profile_missing$n_missing[profile_missing$variable == "HS"]` households have no size recorded and are left out of the HS summaries only.
 - **AGE (age of the homemaker)** tells an advertising agency where and how to speak to each segment. Every household has a value.
 
-**Why not the others.** `Affluence` overlaps with SEC (Spearman correlation `r round(sec_aff_cor, 2)`; SEC runs from 1 high to 4 low, so a negative value means wealthier households sit in the higher classes) and has `r other_missing$Affluence` missing households. `MT` (native language) and `CHILD` are codes with no labels in the data guide, so a difference could not be turned into an action. `SEX` barely varies: `r percent(share_female, accuracy = 1)` of homemakers with a recorded value are female. `EDU`, `FEH` and `CS` are missing for `r other_missing$EDU`, `r other_missing$FEH` and `r other_missing$CS` households and are less directly linked to a bath soap decision. The [appendix](#sec-profile-check) tests this choice against the data.
+**Why not the others.** `Affluence` overlaps with SEC (Spearman correlation `r round(sec_aff_cor, 2)`; SEC runs from 1 high to 4 low, so a negative value means wealthier households sit in the higher classes) and has `r other_missing$Affluence` missing households. `MT` (native language) and `CHILD` are codes with no labels in the data guide, so a difference could not be turned into an action. `SEX` barely varies: `r percent(share_female, accuracy = 1)` of homemakers with a recorded value are female. `EDU`, `FEH` and `CS` are missing for `r other_missing$EDU`, `r other_missing$FEH` and `r other_missing$CS` households and are less directly linked to a bath soap decision. @sec-profile-check tests this choice against the data.
 
 **Missing values.** No household is dropped from the segmentation. For HS, each summary and test uses only the households that have a value, and the number used is shown.
 
@@ -165,7 +165,8 @@ plot_props(profile_df, SEC, "Socioeconomic class within each segment")
 hs_df |>
   ggplot(aes(HS, fct_rev(segment), fill = segment)) +
   geom_boxplot(show.legend = FALSE) +
-  stat_summary(fun = mean, geom = "point", shape = 4, size = 3) +
+  stat_summary(fun = mean, geom = "point", shape = 4, size = 3,
+               show.legend = FALSE) +
   scale_fill_manual(values = pal) +
   labs(title = "Household size within each segment",
        subtitle = paste0("Households with a recorded size: n = ", nrow(hs_df)),
@@ -209,7 +210,123 @@ profile_tests |>
 
 @tbl-profile-tests gives the results. SEC and household size differ significantly between segments, but both effects are small, and age does not differ at all. **The segments are therefore only weakly visible in demographics.** That is a finding in itself, and it supports XYZ's move to behavioural segmentation: a client could not have found these segments from demographics alone, so targeting should run on purchase data (panel or loyalty card records), with SEC and household size used to fine-tune the offer.
 
-Where these differences come from (standardised residuals for SEC and AGE, and pairwise tests for household size) and a check of every demographic against the three chosen are in the [Further checks](#sec-further-checks) part of the appendix.
+The next two sections go beyond the question. They show which segments and classes cause the differences, and test whether a better demographic was left out.
+
+## Extra check: where do the differences come from?
+
+The tests above say *whether* the segments differ. This check says *which* segment and class cause it, so a client knows where to act. For SEC and AGE, the **standardised residual** of each cell compares the number of households in that segment and class with the number expected if every segment had the same mix. A value beyond ±2 marks a clear excess (positive) or shortfall (negative). For HS, **pairwise Wilcoxon tests** compare every pair of segments, with the **Holm adjustment** keeping the overall chance of a false difference at 5% across all the comparisons.
+
+```{r}
+#| label: fig-profile-residuals
+#| fig-cap: "Standardised residuals of segment by SEC and by AGE. Beyond plus or minus 2 is a clear difference."
+#| fig-width: 11
+#| fig-height: 4.5
+
+# Standardised residuals of the segment by class table, in long form for
+# plotting
+resid_df <- function(data, var) {
+  d   <- data |> filter(!is.na(.data[[var]]))
+  tab <- table(segment = d$segment, level = d[[var]])
+  # Simulated p-value, so no small-cell warning. Only the residuals are used
+  res <- chisq.test(tab, simulate.p.value = TRUE, B = 2000)
+  as.data.frame.table(res$stdres, responseName = "resid") |>
+    mutate(variable = var)
+}
+
+plot_resid <- function(rd, title) {
+  ggplot(rd, aes(level, fct_rev(segment), fill = resid)) +
+    geom_tile(colour = "white") +
+    geom_text(aes(label = round(resid, 1), colour = abs(resid) > 2),
+              show.legend = FALSE) +
+    scale_colour_manual(values = c(`TRUE` = pal_ink, `FALSE` = pal_ink)) +
+    scale_fill_gradient2(low = pal_lo, mid = "white", high = pal_hi,
+                         midpoint = 0) +
+    labs(title = title, x = NULL, y = NULL, fill = "Residual")
+}
+
+sec_resid <- resid_df(profile_df, "SEC")
+age_resid <- resid_df(profile_df, "AGE")
+
+plot_resid(sec_resid, "Socioeconomic class") +
+  plot_resid(age_resid, "Age of the homemaker")
+```
+
+```{r}
+#| label: tbl-profile-hs-pairs
+#| tbl-cap: "Household size: segment pairs that still differ after the Holm adjustment."
+
+hs_pairs <- pairwise.wilcox.test(hs_df$HS, hs_df$segment,
+                                 p.adjust.method = "holm", exact = FALSE) |>
+  tidy()
+
+hs_pairs |>
+  filter(p.value < 0.05) |>
+  gt() |>
+  fmt_number(p.value, decimals = 4) |>
+  cols_label(group1 = "Segment", group2 = "Compared with",
+             p.value = "Holm-adjusted p-value")
+```
+
+```{r}
+#| label: residual-values
+
+resid_text <- \(seg, lvl) {
+  sprintf("%+.1f",
+          sec_resid$resid[sec_resid$segment == seg & sec_resid$level == lvl])
+}
+n_age_cells <- sum(abs(age_resid$resid) > 2)
+```
+
+@fig-profile-residuals and @tbl-profile-hs-pairs show the detail. The SEC result is driven by three segments: the Loyal promotion buyers have more SEC 4 households than expected (`r resid_text("Loyal promotion buyers", "4 Low")`), the Promo-6 buyers have more SEC 2 households (`r resid_text("Promo-6 buyers", "2")`), and the small Light occasional group has more SEC 1 households (`r resid_text("Light occasional buyers", "1 High")`). `r if (n_age_cells == 0) "No age cell goes beyond 2 in either direction, which matches the non-significant age test." else paste(n_age_cells, "age cells go beyond 2 in either direction, but the age test as a whole is not significant.")` For household size, only the pairs in the table above differ after adjustment, and every one of them involves the Heavy multi-brand shoppers' larger households. These are the comparisons a client should rely on when choosing which segment gets which offer.
+
+## Extra check: did we miss a better demographic? {#sec-profile-check}
+
+The three variables were chosen for business reasons. As a check, every demographic is measured on how strongly it separates the segments with one common measure, Cramér's V. Numeric variables (HS, Affluence and EDU, which has nine sparse levels) are first cut into four equal-sized groups, and native-language codes held by fewer than 20 households are pooled, so that rare codes do not inflate the measure.
+
+```{r}
+#| label: fig-profile-all-demographics
+#| fig-cap: "How strongly each demographic separates the six segments (Cramer's V)."
+#| fig-width: 8
+#| fig-height: 4.5
+
+all_demo_v <- map_dfr(demo_cols, \(v) {
+  d <- soap_clusters |>
+    select(MemberID, segment) |>
+    left_join(soap_clean |> select(MemberID, value = all_of(v)),
+              by = "MemberID") |>
+    filter(!is.na(value))
+  grp <- if (v %in% c("HS", "Affluence", "EDU")) {
+    # numeric: four equal-sized groups
+    factor(ntile(d$value, 4))
+  } else {
+    # categorical: pool rare codes
+    fct_lump_min(factor(d$value), min = 20)
+  }
+  tab <- table(d$segment, grp)
+  # Simulated p-value, so no small-cell warning. Only the statistic is used
+  res <- chisq.test(tab, simulate.p.value = TRUE, B = 2000)
+  tibble(variable = v, n = nrow(d),
+         cramers_v = cramers_v(tab, unname(res$statistic)),
+         chosen = v %in% profile_vars)
+})
+
+all_demo_v |>
+  ggplot(aes(cramers_v, fct_reorder(variable, cramers_v), fill = chosen)) +
+  geom_col() +
+  scale_fill_manual(values = c(`TRUE` = pal[1], `FALSE` = pal_grey),
+                    labels = c(`TRUE` = "Chosen", `FALSE` = "Not chosen")) +
+  labs(title = "How strongly each demographic separates the segments",
+       x = "Cramer's V", y = NULL, fill = NULL)
+```
+
+```{r}
+#| label: check-values
+
+demo_v <- \(v) round(all_demo_v$cramers_v[all_demo_v$variable == v], 3)
+```
+
+@fig-profile-all-demographics shows that every demographic separates the segments only weakly (the largest V is `r round(max(all_demo_v$cramers_v), 3)`), which repeats the finding above. HS and SEC are among the stronger variables, which supports two of the three choices. `Affluence` (V = `r demo_v("Affluence")`) and `EDU` (`r demo_v("EDU")`) separate the segments more than AGE (`r demo_v("AGE")`). They were left out because Affluence largely repeats SEC and EDU has many sparse levels and more missing values. Since the brief lets the team choose any three demographics, Affluence would be an acceptable alternative to AGE. It is reported here so a reader can see the trade-off rather than take the choice on trust.
+
 
 ## Summary profile of each segment
 
